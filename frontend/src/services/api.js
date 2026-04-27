@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-// URL dinámica para que funcione en tu celular (usando la IP de tu PC) y en la nube
+// URL dinámica: usa localhost si estás programando, o Railway si estás en producción (Vercel/Celular)
 const hostname = window.location.hostname;
-const baseURL = hostname === 'localhost' || hostname === '127.0.0.1'
+const baseURL = (hostname === 'localhost' || hostname === '127.0.0.1')
   ? 'http://localhost:5191/api'
-  : `http://${hostname}:5191/api`; 
+  : 'https://scintillating-warmth-production-d1f6.up.railway.app/api'; 
 
 const api = axios.create({
   baseURL,
