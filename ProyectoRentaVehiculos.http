@@ -1,0 +1,6 @@
+@ProyectoRentaVehiculos_HostAddress = http://localhost:5191
+
+GET {{ProyectoRentaVehiculos_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
