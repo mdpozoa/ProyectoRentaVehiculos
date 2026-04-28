@@ -20,13 +20,27 @@ namespace ProyectoRentaVehiculos.DataAccess
 
         public async Task<Reserva?> GetReservaById(int id)
         {
-            var res = await _supabase.From<Reserva>().Where(x => x.IdReserva == id).Get();
+            var res = await _supabase.From<Reserva>().Where(x => x.IdReserva == (int?)id).Get();
             return res.Models.FirstOrDefault();
         }
 
         public async Task<Reserva?> CreateReserva(Reserva r)
         {
-            var res = await _supabase.From<Reserva>().Insert(r);
+            // Aseguramos que el ID no se envíe en el INSERT (lo genera la DB)
+            r.IdReserva = null;
+
+            // Insertamos sin devolver el registro (evita que la librería incluya id=null)
+            await _supabase.From<Reserva>().Insert(r, new Postgrest.QueryOptions { ReturnType = Postgrest.QueryOptions.ReturnType.Minimal });
+
+            // Recuperamos la reserva recién creada buscando por campos únicos de negocio
+            var res = await _supabase.From<Reserva>()
+                .Where(x => x.IdUsuario == r.IdUsuario)
+                .Where(x => x.IdVehiculo == r.IdVehiculo)
+                .Where(x => x.FInicioReserva == r.FInicioReserva)
+                .Order("id_reserva", Postgrest.Constants.Ordering.Descending)
+                .Limit(1)
+                .Get();
+
             return res.Models.FirstOrDefault();
         }
 
@@ -37,7 +51,7 @@ namespace ProyectoRentaVehiculos.DataAccess
         }
 
         public async Task DeleteReserva(int id) =>
-            await _supabase.From<Reserva>().Where(x => x.IdReserva == id).Delete();
+            await _supabase.From<Reserva>().Where(x => x.IdReserva == (int?)id).Delete();
 
         // ── CONTRATO ─────────────────────────────────────────────────────────
         public async Task<List<Contrato>> GetAllContratos()
