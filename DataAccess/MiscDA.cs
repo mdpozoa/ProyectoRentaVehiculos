@@ -20,7 +20,7 @@ namespace ProyectoRentaVehiculos.DataAccess
 
         public async Task<Factura?> GetFacturaById(int id)
         {
-            var r = await _supabase.From<Factura>().Where(x => x.IdFactura == id).Get();
+            var r = await _supabase.From<Factura>().Where(x => x.IdFactura == (int?)id).Get();
             return r.Models.FirstOrDefault();
         }
 
@@ -32,8 +32,8 @@ namespace ProyectoRentaVehiculos.DataAccess
 
         public async Task<Factura?> CreateFactura(Factura f)
         {
-            await _supabase.From<Factura>().Insert(f);
-            // Recuperar por número único de factura para obtener el ID generado por la BD
+            f.IdFactura = null;
+            await _supabase.From<Factura>().Insert(f, new Postgrest.QueryOptions { ReturnType = Postgrest.QueryOptions.ReturnType.Minimal });
             var r = await _supabase.From<Factura>().Where(x => x.NumeroFactura == f.NumeroFactura).Get();
             return r.Models.FirstOrDefault();
         }
@@ -45,7 +45,7 @@ namespace ProyectoRentaVehiculos.DataAccess
         }
 
         public async Task DeleteFactura(int id) =>
-            await _supabase.From<Factura>().Where(x => x.IdFactura == id).Delete();
+            await _supabase.From<Factura>().Where(x => x.IdFactura == (int?)id).Delete();
 
         // ── KARDEX ──────────────────────────────────────────────────────────
         public async Task<List<Kardex>> GetKardex()
@@ -56,13 +56,15 @@ namespace ProyectoRentaVehiculos.DataAccess
 
         public async Task<Kardex?> GetKardexById(int id)
         {
-            var r = await _supabase.From<Kardex>().Where(x => x.IdKardex == id).Get();
+            var r = await _supabase.From<Kardex>().Where(x => x.IdKardex == (int?)id).Get();
             return r.Models.FirstOrDefault();
         }
 
         public async Task<Kardex?> CreateKardex(Kardex k)
         {
-            var r = await _supabase.From<Kardex>().Insert(k);
+            k.IdKardex = null;
+            await _supabase.From<Kardex>().Insert(k, new Postgrest.QueryOptions { ReturnType = Postgrest.QueryOptions.ReturnType.Minimal });
+            var r = await _supabase.From<Kardex>().Where(x => x.IdVehiculo == k.IdVehiculo).Order("id_kardex", Postgrest.Constants.Ordering.Descending).Limit(1).Get();
             return r.Models.FirstOrDefault();
         }
 
@@ -73,7 +75,7 @@ namespace ProyectoRentaVehiculos.DataAccess
         }
 
         public async Task DeleteKardex(int id) =>
-            await _supabase.From<Kardex>().Where(x => x.IdKardex == id).Delete();
+            await _supabase.From<Kardex>().Where(x => x.IdKardex == (int?)id).Delete();
 
         // ── PAGO ────────────────────────────────────────────────────────────
         public async Task<List<Pago>> GetPagos()
@@ -84,7 +86,7 @@ namespace ProyectoRentaVehiculos.DataAccess
 
         public async Task<Pago?> GetPagoById(int id)
         {
-            var r = await _supabase.From<Pago>().Where(x => x.IdPago == id).Get();
+            var r = await _supabase.From<Pago>().Where(x => x.IdPago == (int?)id).Get();
             return r.Models.FirstOrDefault();
         }
 
@@ -96,9 +98,9 @@ namespace ProyectoRentaVehiculos.DataAccess
 
         public async Task<Pago?> CreatePago(Pago p)
         {
-            await _supabase.From<Pago>().Insert(p);
-            // Recuperar el pago creado por id_factura para obtener el ID generado
-            var r = await _supabase.From<Pago>().Where(x => x.IdFactura == p.IdFactura).Get();
+            p.IdPago = null;
+            await _supabase.From<Pago>().Insert(p, new Postgrest.QueryOptions { ReturnType = Postgrest.QueryOptions.ReturnType.Minimal });
+            var r = await _supabase.From<Pago>().Where(x => x.IdFactura == p.IdFactura).Order("id_pago", Postgrest.Constants.Ordering.Descending).Limit(1).Get();
             return r.Models.FirstOrDefault();
         }
 
@@ -109,6 +111,6 @@ namespace ProyectoRentaVehiculos.DataAccess
         }
 
         public async Task DeletePago(int id) =>
-            await _supabase.From<Pago>().Where(x => x.IdPago == id).Delete();
+            await _supabase.From<Pago>().Where(x => x.IdPago == (int?)id).Delete();
     }
 }
