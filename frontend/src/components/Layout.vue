@@ -137,8 +137,9 @@ const isGroupActive = (group) => {
         <div style="display:flex; align-items:center; gap:1rem;">
           <button class="mobile-toggle" @click="toggleSidebar">☰</button>
           <div class="breadcrumbs">
-          <span class="text-muted">Panel / </span>
-          <span class="text-primary" style="font-weight: 600;">{{ currentPath.split('/').pop() || 'Inicio' }}</span>
+            <span class="text-muted">Panel / </span>
+            <span class="text-primary" style="font-weight: 600;">{{ currentPath.split('/').pop() || 'Inicio' }}</span>
+          </div>
         </div>
         <div class="user-profile">
           <div class="avatar">{{ userName.charAt(0).toUpperCase() }}</div>
