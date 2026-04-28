@@ -22,7 +22,7 @@ const fields = [
   { key: 'Estado_Pago', label: 'Estado',     type: 'select',  required: true,
     options: [
       { value: 'Pendiente',  label: 'Pendiente' },
-      { value: 'Aprobado',   label: 'Aprobado' },
+      { value: 'Completado',   label: 'Completado' },
       { value: 'Rechazado',  label: 'Rechazado' },
     ]
   },
@@ -78,7 +78,7 @@ onMounted(fetchItems);
               <td v-for="f in fields" :key="f.key">
                 <span v-if="f.key === 'Estado_Pago'" class="status-chip"
                   :class="{
-                    'chip-green':  item[f.key] === 'Aprobado',
+                    'chip-green':  item[f.key] === 'Completado',
                     'chip-yellow': item[f.key] === 'Pendiente',
                     'chip-red':    item[f.key] === 'Rechazado',
                   }">{{ item[f.key] }}</span>
