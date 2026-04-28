@@ -16,6 +16,30 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
         options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+        options.JsonSerializerOptions.TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver
+        {
+            Modifiers = { (typeInfo) =>
+            {
+                if (typeInfo.Type.IsSubclassOf(typeof(Supabase.Postgrest.Models.BaseModel)))
+                {
+                    foreach (var property in typeInfo.Properties)
+                    {
+                        // Ocultar propiedades internas de Supabase que no tienen [JsonPropertyName]
+                        if (property.AttributeProvider != null &&
+                            property.AttributeProvider.GetCustomAttributes(typeof(System.Text.Json.Serialization.JsonPropertyNameAttribute), true).Length == 0)
+                        {
+                            property.ShouldSerialize = (_, _) => false;
+                        }
+
+                        // Ocultar explícitamente las propiedades problemáticas del BaseModel de Supabase
+                        if (property.Name is "BaseUri" or "ClientOptions" or "PrimaryKeys" or "TableName" or "PrimaryKey")
+                        {
+                            property.ShouldSerialize = (_, _) => false;
+                        }
+                    }
+                }
+            }}
+        };
     });
 
 builder.Services.AddSwaggerGen(c =>
