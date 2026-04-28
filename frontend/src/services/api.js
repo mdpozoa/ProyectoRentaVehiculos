@@ -1,4 +1,5 @@
 import axios from 'axios';
+// Last updated: 2026-04-27 20:20
 
 // URL dinámica: usa localhost si estás programando, o Railway si estás en producción (Vercel/Celular)
 // URL de la API: En producción (Vercel) siempre Railway, en desarrollo localhost
