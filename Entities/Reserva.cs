@@ -15,15 +15,15 @@ namespace ProyectoRentaVehiculos.Entities
 
         [Column("id_usuario")]
         [JsonPropertyName("ID_Usuario")]
-        public int IdUsuario { get; set; }
+        public int? IdUsuario { get; set; }
 
         [Column("id_vehiculo")]
         [JsonPropertyName("ID_Vehiculo")]
-        public int IdVehiculo { get; set; }
+        public int? IdVehiculo { get; set; }
 
         [Column("id_agencia")]
         [JsonPropertyName("ID_Agencia")]
-        public int IdAgencia { get; set; }
+        public int? IdAgencia { get; set; }
 
         [Column("fecha_reserva")]
         [JsonPropertyName("Fecha_Reserva")]

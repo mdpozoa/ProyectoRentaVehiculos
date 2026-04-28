@@ -101,43 +101,11 @@ const procesarPago = async () => {
     });
     console.log('Pago registrado correctamente');
 
-    // 5. Actualizar estado de la reserva (no bloqueante)
-    try {
-      await api.put('/Reservas', {
-        ID_Reserva: reserva.value.idReserva,
-        ID_Usuario: idUsuario,
-        ID_Vehiculo: reserva.value.vehiculo.ID_Vehiculo,
-        ID_Agencia: reserva.value.vehiculo.ID_Agencia_Actual,
-        F_Inicio_Reserva: reserva.value.inicio,
-        F_Final_Reserva: reserva.value.fin,
-        Estado_Reserva: 'Confirmada'
-      });
-      console.log('✅ Reserva actualizada a Confirmada');
-    } catch (resErr) {
-      console.warn('Estado reserva no actualizado (verificar constraint), pago exitoso de todas formas:', resErr);
-    }
+    // 5. El estado de la reserva y el vehículo se actualizan automáticamente en el backend 
+    // al registrar el pago en /api/Pagos (MiscBusiness.CreatePago).
+    // No es necesario llamar a PUT /Reservas ni PUT /Vehiculos aquí.
 
-    // 6. Actualizar estado del vehículo a Reservado (no bloqueante)
-    try {
-      const veh = reserva.value.vehiculo;
-      await api.put('/Vehiculos', {
-        ID_Vehiculo:         veh.ID_Vehiculo,
-        ID_Modelo:           veh.ID_Modelo,
-        ID_Categoria:        veh.ID_Categoria,
-        ID_Agencia_Actual:   veh.ID_Agencia_Actual,
-        Placa_Vehiculo:      veh.Placa_Vehiculo,
-        Color_Vehiculo:      veh.Color_Vehiculo,
-        Anio_Vehiculo:       veh.Anio_Vehiculo,
-        Kilometraje_Vehiculo:veh.Kilometraje_Vehiculo,
-        Combustible_Vehiculo:veh.Combustible_Vehiculo,
-        Estado_Vehiculo:     'Reservado'
-      });
-      console.log('✅ Vehículo marcado como Reservado');
-    } catch (vehErr) {
-      console.warn('No se pudo marcar el vehículo como Reservado (verificar constraint):', vehErr);
-    }
-
-    // 7. Sincronizar con servidor de Booking (no bloqueante)
+    // 6. Sincronizar con servidor de Booking (no bloqueante)
     sincronizandoBooking.value = true;
     try {
       await bookingService.sendBookingData({
