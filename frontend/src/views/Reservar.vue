@@ -40,27 +40,35 @@ const fechaMinima = computed(() => {
   return hoy.toISOString().split('T')[0];
 });
 
+// Utilidad para sumar días sin problemas de zona horaria
+const addDays = (dateStr, days) => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + days);
+  const yy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+};
+
 const fechaMinimaFin = computed(() => {
   if (!inicio.value) return fechaMinima.value;
-  const fechaInicio = new Date(inicio.value);
-  fechaInicio.setDate(fechaInicio.getDate() + 1); // Al menos 1 día después
-  return fechaInicio.toISOString().split('T')[0];
+  return addDays(inicio.value, 1);
 });
 
 const fechaMaximaFin = computed(() => {
   if (!inicio.value) return '';
-  const fechaInicio = new Date(inicio.value);
-  fechaInicio.setDate(fechaInicio.getDate() + 7); // Máximo 7 días después
-  return fechaInicio.toISOString().split('T')[0];
+  return addDays(inicio.value, 7);
 });
 
 const dias = computed(() => {
   if (!inicio.value || !fin.value) return 0;
-  const start = new Date(inicio.value);
-  const end = new Date(fin.value);
-  const diffTime = Math.abs(end - start);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-  return diffDays;
+  const [y1, m1, d1] = inicio.value.split('-').map(Number);
+  const [y2, m2, d2] = fin.value.split('-').map(Number);
+  const start = new Date(y1, m1 - 1, d1);
+  const end = new Date(y2, m2 - 1, d2);
+  const diffTime = end - start;
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
 });
 
 const confirmarReserva = async () => {
