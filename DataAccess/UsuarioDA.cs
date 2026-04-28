@@ -25,14 +25,15 @@ namespace ProyectoRentaVehiculos.DataAccess
         {
             // Hashear la contraseña antes de guardar
             usuario.PassUsuario = BCrypt.Net.BCrypt.HashPassword(usuario.PassUsuario);
-
-            var response = await _supabase.From<Usuario>().Insert(usuario);
+            usuario.IdUsuario = null;
+            await _supabase.From<Usuario>().Insert(usuario, new Postgrest.QueryOptions { ReturnType = Postgrest.QueryOptions.ReturnType.Minimal });
+            var response = await _supabase.From<Usuario>().Where(x => x.UserUsuario == usuario.UserUsuario).Get();
             return response.Models.FirstOrDefault();
         }
 
         public async Task<Usuario?> GetByIdAsync(int id)
         {
-            var response = await _supabase.From<Usuario>().Where(x => x.IdUsuario == id).Get();
+            var response = await _supabase.From<Usuario>().Where(x => x.IdUsuario == (int?)id).Get();
             return response.Models.FirstOrDefault();
         }
 
@@ -51,7 +52,7 @@ namespace ProyectoRentaVehiculos.DataAccess
 
         public async Task DeleteAsync(int id)
         {
-            await _supabase.From<Usuario>().Where(x => x.IdUsuario == id).Delete();
+            await _supabase.From<Usuario>().Where(x => x.IdUsuario == (int?)id).Delete();
         }
     }
 }

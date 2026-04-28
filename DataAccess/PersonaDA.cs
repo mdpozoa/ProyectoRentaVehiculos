@@ -23,13 +23,15 @@ namespace ProyectoRentaVehiculos.DataAccess
 
         public async Task<Persona?> GetByIdAsync(int id)
         {
-            var response = await _supabase.From<Persona>().Where(x => x.IdPersona == id).Get();
+            var response = await _supabase.From<Persona>().Where(x => x.IdPersona == (int?)id).Get();
             return response.Models.FirstOrDefault();
         }
 
         public async Task<Persona?> CreateAsync(Persona persona)
         {
-            var response = await _supabase.From<Persona>().Insert(persona);
+            persona.IdPersona = null;
+            await _supabase.From<Persona>().Insert(persona, new Postgrest.QueryOptions { ReturnType = Postgrest.QueryOptions.ReturnType.Minimal });
+            var response = await _supabase.From<Persona>().Where(x => x.CedulaPersona == persona.CedulaPersona).Get();
             return response.Models.FirstOrDefault();
         }
 
@@ -41,7 +43,7 @@ namespace ProyectoRentaVehiculos.DataAccess
 
         public async Task DeleteAsync(int id)
         {
-            await _supabase.From<Persona>().Where(x => x.IdPersona == id).Delete();
+            await _supabase.From<Persona>().Where(x => x.IdPersona == (int?)id).Delete();
         }
     }
 }
