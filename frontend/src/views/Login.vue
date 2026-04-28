@@ -106,6 +106,17 @@ const handleRegister = async () => {
     return;
   }
 
+  // Validación de Nombres y Apellidos (Solo letras y espacios)
+  const soloLetrasRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
+  if (!soloLetrasRegex.test(form.value.Nombre_Persona.trim())) {
+    errorMsg.value = 'El nombre solo puede contener letras.';
+    return;
+  }
+  if (!soloLetrasRegex.test(form.value.Apellido_Persona.trim())) {
+    errorMsg.value = 'El apellido solo puede contener letras.';
+    return;
+  }
+
   loading.value = true;
   try {
     // Paso 1: Crear Persona
