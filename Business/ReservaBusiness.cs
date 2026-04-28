@@ -27,7 +27,7 @@ namespace ProyectoRentaVehiculos.Business
 
             if (req.FInicioReserva.HasValue && req.FFinalReserva.HasValue)
             {
-                var dias = (req.FFinalReserva.Value - req.FInicioReserva.Value).TotalDays;
+                var dias = (req.FFinalReserva.Value.Date - req.FInicioReserva.Value.Date).TotalDays;
                 if (dias <= 0) throw new System.Exception("La fecha final debe ser posterior a la fecha de inicio.");
                 if (dias > 7) throw new System.Exception("La renta máxima permitida es de 7 días.");
             }

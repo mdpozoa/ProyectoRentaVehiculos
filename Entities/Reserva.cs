@@ -31,11 +31,11 @@ namespace ProyectoRentaVehiculos.Entities
 
         [Column("f_inicio_reserva")]
         [JsonPropertyName("F_Inicio_Reserva")]
-        public DateTime FInicioReserva { get; set; }
+        public DateTime? FInicioReserva { get; set; }
 
         [Column("f_final_reserva")]
         [JsonPropertyName("F_Final_Reserva")]
-        public DateTime FFinalReserva { get; set; }
+        public DateTime? FFinalReserva { get; set; }
 
         [Column("estado_reserva")]
         [JsonPropertyName("Estado_Reserva")]
