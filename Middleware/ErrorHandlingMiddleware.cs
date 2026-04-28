@@ -31,21 +31,31 @@ namespace ProyectoRentaVehiculos.Middleware
         {
             context.Response.ContentType = "application/json";
 
-            var (statusCode, mensaje) = ex switch
+            var statusCode = ex switch
             {
-                KeyNotFoundException   => (HttpStatusCode.NotFound,           "Recurso no encontrado."),
-                UnauthorizedAccessException => (HttpStatusCode.Unauthorized,  "No tienes permiso para esta acción."),
-                ArgumentException      => (HttpStatusCode.BadRequest,         ex.Message),
-                InvalidOperationException => (HttpStatusCode.BadRequest,      ex.Message),
-                _                      => (HttpStatusCode.InternalServerError, "Ocurrió un error interno. Intenta nuevamente.")
+                KeyNotFoundException => HttpStatusCode.NotFound,
+                UnauthorizedAccessException => HttpStatusCode.Unauthorized,
+                ArgumentException => HttpStatusCode.BadRequest,
+                InvalidOperationException => HttpStatusCode.BadRequest,
+                _ => HttpStatusCode.InternalServerError
             };
 
             context.Response.StatusCode = (int)statusCode;
 
+            // Intentar extraer detalles si es un error de Supabase/PostgreSQL
+            string? dbError = null;
+            if (ex.GetType().Name == "PostgrestException")
+            {
+                // Usamos dynamic para evitar dependencia directa si el tipo es difícil de castear aquí
+                dynamic dex = ex;
+                dbError = $"DB Error: {dex.Message}. Details: {dex.Details}. Hint: {dex.Hint}";
+            }
+
             var respuesta = new
             {
-                error   = mensaje,
-                detalle = ex.ToString()  // Mostrar stack trace para depuración profunda
+                error = ex.Message,
+                dbDetails = dbError,
+                mensaje = "Ocurrió un error en el servidor. Revisa los detalles."
             };
 
             await context.Response.WriteAsync(
