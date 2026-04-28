@@ -3,12 +3,13 @@ import axios from 'axios';
 
 // URL dinámica: usa localhost si estás programando, o Railway si estás en producción (Vercel/Celular)
 // URL de la API: En producción (Vercel) siempre Railway, en desarrollo localhost
-const baseURL = import.meta.env.VITE_API_URL || 
-  (import.meta.env.PROD
-    ? 'https://scintillating-warmth-production-d1f6.up.railway.app/api'
-    : 'http://localhost:5191/api');
+// URL de la API: En producción (Vercel) siempre Railway, en desarrollo localhost
+// URL definitiva: Si detecta Vercel, usa Railway. Si no, usa localhost.
+const baseURL = window.location.hostname.includes('vercel.app')
+  ? 'https://scintillating-warmth-production-d1f6.up.railway.app/api'
+  : 'http://localhost:5191/api';
 
-console.log(`[API] Entorno: ${import.meta.env.MODE}, URL Base: ${baseURL}`);
+console.log(`[DEBUG] Host: ${window.location.hostname}, API: ${baseURL}`);
 
 const api = axios.create({
   baseURL,
