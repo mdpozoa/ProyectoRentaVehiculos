@@ -52,52 +52,10 @@ namespace ProyectoRentaVehiculos.Business
             if (p.MontoPago <= 0) throw new System.Exception("El monto del pago debe ser mayor a 0.");
 
             p.EstadoPago = "Completado";
-            System.Console.WriteLine($"[ORCHESTRATION] Registrando pago para Factura ID: {p.IdFactura}");
             
-            var pago = await _miscDA.CreatePago(p);
-
-            if (pago != null)
-            {
-                System.Console.WriteLine($"[ORCHESTRATION] Pago registrado con ID: {pago.IdPago}. Buscando Factura...");
-                var factura = await _miscDA.GetFacturaById(p.IdFactura);
-                
-                if (factura != null)
-                {
-                    System.Console.WriteLine($"[ORCHESTRATION] Factura encontrada (Contrato ID: {factura.IdContrato}). Buscando Contrato...");
-                    var contrato = await _reservaDA.GetContratoById(factura.IdContrato);
-                    
-                    if (contrato != null)
-                    {
-                        System.Console.WriteLine($"[ORCHESTRATION] Contrato encontrado (Reserva ID: {contrato.IdReserva}). Buscando Reserva...");
-                        var reserva = await _reservaDA.GetReservaById(contrato.IdReserva);
-                        
-                        if (reserva != null)
-                        {
-                            System.Console.WriteLine($"[ORCHESTRATION] Reserva encontrada. Actualizando a 'Confirmada'...");
-                            reserva.EstadoReserva = "Confirmada";
-                            await _reservaDA.UpdateReserva(reserva);
-
-                            if (reserva.IdVehiculo.HasValue)
-                            {
-                                System.Console.WriteLine($"[ORCHESTRATION] Buscando Vehículo ID: {reserva.IdVehiculo} para marcar como 'Rentado'...");
-                                var vehiculo = await _vehiculoDA.GetByIdAsync(reserva.IdVehiculo.Value);
-                                if (vehiculo != null)
-                                {
-                                    vehiculo.EstadoVehiculo = "Rentado";
-                                    await _vehiculoDA.UpdateAsync(vehiculo);
-                                    System.Console.WriteLine("[ORCHESTRATION] ¡Orquestación completada con éxito!");
-                                }
-                                else System.Console.WriteLine("[ORCHESTRATION] ERROR: Vehículo no encontrado.");
-                            }
-                            else System.Console.WriteLine("[ORCHESTRATION] ERROR: La reserva no tiene ID de vehículo.");
-                        }
-                        else System.Console.WriteLine("[ORCHESTRATION] ERROR: Reserva no encontrada.");
-                    }
-                    else System.Console.WriteLine("[ORCHESTRATION] ERROR: Contrato no encontrado.");
-                }
-                else System.Console.WriteLine("[ORCHESTRATION] ERROR: Factura no encontrada.");
-            }
-            return pago;
+            // Nota: La actualización de la Reserva a 'Confirmada' y del Vehículo a 'Rentado'
+            // ahora se maneja automáticamente en la base de datos mediante el Trigger 'trg_pago_exitoso'.
+            return await _miscDA.CreatePago(p);
         }
 
         public async Task<Pago?>      UpdatePago(Pago p)   => await _miscDA.UpdatePago(p);
