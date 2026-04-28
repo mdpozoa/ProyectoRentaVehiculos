@@ -91,6 +91,21 @@ const handleRegister = async () => {
     return;
   }
 
+  // Validación de Dirección
+  const dir = form.value.Direccion_Persona.trim();
+  if (dir.length < 5 || dir.length > 100) {
+    errorMsg.value = 'La dirección debe tener entre 5 y 100 caracteres.';
+    return;
+  }
+  // Al menos una letra y un número, o al menos dos palabras
+  const hasLetter = /[a-zA-Z]/.test(dir);
+  const hasNumber = /[0-9]/.test(dir);
+  const words = dir.split(/\s+/).filter(w => w.length > 0);
+  if (!( (hasLetter && hasNumber) || words.length >= 2 )) {
+    errorMsg.value = 'Por favor ingresa una dirección válida (ej: Av. Principal 123).';
+    return;
+  }
+
   loading.value = true;
   try {
     // Paso 1: Crear Persona

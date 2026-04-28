@@ -36,16 +36,18 @@ const fetchReservas = async () => {
 
 onMounted(fetchReservas);
 
-const cancelarReserva = async (id) => {
+const cancelarReserva = async (reserva) => {
   if (!confirm('¿Estás seguro de que deseas cancelar esta reserva?')) return;
   
   try {
-    // Si la API lo permite, llamamos a DELETE
-    await api.delete(`/Reservas/${id}`);
+    // En lugar de DELETE, hacemos un PUT para cambiar el estado a Cancelada
+    const payload = { ...reserva, Estado_Reserva: 'Cancelada' };
+    await api.put(`/Reservas`, payload);
     await fetchReservas(); // Recargar la lista
     alert('Reserva cancelada exitosamente.');
   } catch (err) {
-    alert('No se pudo cancelar la reserva. Es posible que ya esté procesada o haya un error de permisos.');
+    alert('No se pudo cancelar la reserva.');
+    console.error(err);
   }
 };
 
@@ -137,7 +139,7 @@ const continuarPago = async (reserva) => {
           <p class="text-muted text-small">Esta reserva aún no ha sido pagada.</p>
           <div style="display:flex; gap:0.5rem;">
             <button class="btn-pagar" style="flex:1;" @click="continuarPago(reserva)">Continuar al Pago</button>
-            <button class="btn-eliminar" @click="cancelarReserva(reserva.ID_Reserva)">Eliminar</button>
+            <button class="btn-eliminar" @click="cancelarReserva(reserva)">Cancelar reserva</button>
           </div>
         </div>
       </div>

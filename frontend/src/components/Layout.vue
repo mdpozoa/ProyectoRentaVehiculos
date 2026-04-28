@@ -13,6 +13,11 @@ const logout = () => {
   router.push('/login');
 };
 
+const isSidebarOpen = ref(false);
+const toggleSidebar = () => {
+  isSidebarOpen.value = !isSidebarOpen.value;
+};
+
 // Categorías colapsables del sidebar
 const menuGroups = ref([
   {
@@ -44,8 +49,6 @@ const menuGroups = ref([
     items: [
       { name: 'Agencias', path: '/admin/agencias', icon: '🏢' },
       { name: 'Vehículos', path: '/admin/vehiculos', icon: '🚙' },
-      { name: 'Kardex', path: '/admin/kardex', icon: '📊' },
-      { name: 'Siniestros', path: '/admin/siniestros', icon: '⚠️' },
     ]
   },
   {
@@ -76,7 +79,8 @@ const isGroupActive = (group) => {
 <template>
   <div class="app-layout">
     <!-- Sidebar -->
-    <aside class="sidebar glass-panel">
+    <aside class="sidebar glass-panel" :class="{ 'mobile-open': isSidebarOpen }">
+      <button class="close-sidebar" @click="toggleSidebar">✕</button>
       <div class="sidebar-header">
         <img src="/imagens/CARRO LETRAS.png" alt="Logo" style="height: 50px; margin-right: 0.5rem;">
         <div>
@@ -130,7 +134,9 @@ const isGroupActive = (group) => {
     <!-- Main Content -->
     <main class="main-content">
       <header class="top-header glass-panel">
-        <div class="breadcrumbs">
+        <div style="display:flex; align-items:center; gap:1rem;">
+          <button class="mobile-toggle" @click="toggleSidebar">☰</button>
+          <div class="breadcrumbs">
           <span class="text-muted">Panel / </span>
           <span class="text-primary" style="font-weight: 600;">{{ currentPath.split('/').pop() || 'Inicio' }}</span>
         </div>
@@ -370,4 +376,61 @@ const isGroupActive = (group) => {
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
 .fade-enter-from { opacity: 0; transform: translateY(8px); }
 .fade-leave-to { opacity: 0; transform: translateY(-8px); }
+
+/* Estilos responsivos */
+.mobile-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.close-sidebar {
+  display: none;
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -320px; /* Oculto por defecto */
+    margin: 0;
+    height: 100vh;
+    border-radius: 0;
+    transition: left 0.3s ease;
+    background: #0f172a; /* Fondo sólido para móvil */
+  }
+
+  .sidebar.mobile-open {
+    left: 0;
+    box-shadow: 10px 0 50px rgba(0,0,0,0.5);
+  }
+
+  .mobile-toggle, .close-sidebar {
+    display: block;
+  }
+
+  .main-content {
+    padding: 0;
+  }
+
+  .top-header {
+    padding: 0 1rem;
+    border-radius: 0;
+  }
+
+  .app-layout {
+    display: block; /* Para que el main content ocupe todo */
+  }
+}
 </style>
