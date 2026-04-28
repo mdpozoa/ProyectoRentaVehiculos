@@ -13,14 +13,22 @@ const error = ref('');
 
 const inicio = ref('');
 const fin = ref('');
+const agencias = ref([]);
+const agenciaSeleccionada = ref('');
 
 onMounted(async () => {
   const idVehiculo = route.params.id;
   try {
     const res = await api.get(`/Vehiculos/${idVehiculo}`);
     vehiculo.value = res.data;
+
+    const resAgencias = await api.get('/Agencias');
+    agencias.value = resAgencias.data;
+    if (agencias.value.length > 0) {
+      agenciaSeleccionada.value = agencias.value[0].ID_Agencia;
+    }
   } catch (err) {
-    error.value = 'No se pudo cargar la información del vehículo.';
+    error.value = 'No se pudo cargar la información necesaria.';
   } finally {
     cargando.value = false;
   }
@@ -36,6 +44,13 @@ const fechaMinimaFin = computed(() => {
   if (!inicio.value) return fechaMinima.value;
   const fechaInicio = new Date(inicio.value);
   fechaInicio.setDate(fechaInicio.getDate() + 1); // Al menos 1 día después
+  return fechaInicio.toISOString().split('T')[0];
+});
+
+const fechaMaximaFin = computed(() => {
+  if (!inicio.value) return '';
+  const fechaInicio = new Date(inicio.value);
+  fechaInicio.setDate(fechaInicio.getDate() + 7); // Máximo 7 días después
   return fechaInicio.toISOString().split('T')[0];
 });
 
@@ -70,7 +85,7 @@ const confirmarReserva = async () => {
     const resReserva = await api.post('/Reservas', {
       ID_Usuario: idUsuario,
       ID_Vehiculo: vehiculo.value.ID_Vehiculo,
-      ID_Agencia: 1, // Por defecto Agencia 1 (puedes cambiarlo si tienes selector)
+      ID_Agencia: agenciaSeleccionada.value,
       F_Inicio_Reserva: new Date(inicio.value).toISOString(),
       F_Final_Reserva: new Date(fin.value).toISOString(),
       Estado_Reserva: 'Pendiente'
@@ -132,9 +147,18 @@ const confirmarReserva = async () => {
 
         <hr class="divisor" />
 
-        <!-- FECHAS -->
+        <!-- AGENCIA Y FECHAS -->
         <div class="formulario">
-          <h3>Selecciona las fechas</h3>
+          <div class="campo" style="margin-bottom: 1.5rem;">
+            <label>Agencia de Retiro</label>
+            <select v-model="agenciaSeleccionada">
+              <option v-for="agencia in agencias" :key="agencia.ID_Agencia" :value="agencia.ID_Agencia">
+                {{ agencia.Nombre_Agencia }} - {{ agencia.Direccion_Agencia }}
+              </option>
+            </select>
+          </div>
+
+          <h3>Selecciona las fechas (Máx 7 días)</h3>
           
           <div class="fechas-grid">
             <div class="campo">
@@ -153,6 +177,7 @@ const confirmarReserva = async () => {
                 type="date" 
                 v-model="fin" 
                 :min="fechaMinimaFin" 
+                :max="fechaMaximaFin"
                 :disabled="!inicio"
               />
             </div>
@@ -310,18 +335,24 @@ const confirmarReserva = async () => {
   color: #aaa;
 }
 
-.campo input {
+.campo input, .campo select {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 8px;
   padding: 0.75rem;
   color: white;
   font-family: inherit;
+  width: 100%;
 }
 
-.campo input:focus {
+.campo input:focus, .campo select:focus {
   outline: none;
   border-color: var(--primary, #f97316);
+}
+
+.campo select option {
+  background: #1e1e1e;
+  color: white;
 }
 
 .campo input:disabled {

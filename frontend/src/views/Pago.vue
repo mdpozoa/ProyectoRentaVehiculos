@@ -97,7 +97,7 @@ const procesarPago = async () => {
       ID_Factura: idFactura,
       Fecha_Pago: new Date().toISOString(),
       Monto_Pago: total.value,
-      Estado_Pago: 'Aprobado'  // ✅ Valor exacto del CHECK constraint en Supabase
+      Estado_Pago: 'Completado'  // ✅ Valor exacto del CHECK constraint en Supabase
     });
     console.log('Pago registrado correctamente');
 
