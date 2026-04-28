@@ -40,7 +40,7 @@ const combustibleIcon = (tipo) => {
 <template>
   <div class="catalogo">
     <div class="catalogo-header">
-      <h1>Catálogo de vehículos</h1>
+      <h1>Catálogo de vehículos (v1.0.5)</h1>
       <p>Selecciona el vehículo que deseas reservar</p>
     </div>
 
