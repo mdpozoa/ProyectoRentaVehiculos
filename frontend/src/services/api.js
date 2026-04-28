@@ -27,4 +27,21 @@ api.interceptors.request.use(config => {
   return config;
 });
 
+// Interceptor para manejar respuestas (especialmente 401)
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response && error.response.status === 401) {
+      console.warn('Sesión expirada o no autorizada. Redirigiendo a login...');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_role');
+      // No podemos usar router aquí fácilmente, así que usamos window.location
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

@@ -103,22 +103,27 @@ builder.Services.AddScoped<ProyectoRentaVehiculos.Business.AdministracionBusines
 builder.Services.AddScoped<ProyectoRentaVehiculos.DataAccess.AuditoriaDA>();
 builder.Services.AddScoped<ProyectoRentaVehiculos.Business.AuditoriaBusiness>();
 
+builder.Services.AddAuthorization(); // Agregar servicio de autorización explícitamente
+
 // ── JWT ───────────────────────────────────────────────────────────────────────
 var jwtKey = builder.Configuration["Jwt:Key"];
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(opt =>
+if (string.IsNullOrEmpty(jwtKey)) throw new Exception("La clave JWT no está configurada en appsettings.json o variables de entorno.");
+
+builder.Services.AddAuthentication(opt => {
+    opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    opt.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(opt =>
+{
+    opt.TokenValidationParameters = new TokenValidationParameters
     {
-        opt.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer           = false,
-            ValidateAudience         = false,
-            ValidateLifetime         = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer              = builder.Configuration["Jwt:Issuer"],
-            ValidAudience            = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!))
-        };
-    });
+        ValidateIssuer           = false,
+        ValidateAudience         = false,
+        ValidateLifetime         = true,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+    };
+});
 
 var app = builder.Build();
 
