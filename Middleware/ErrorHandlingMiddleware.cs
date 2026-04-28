@@ -42,20 +42,25 @@ namespace ProyectoRentaVehiculos.Middleware
 
             context.Response.StatusCode = (int)statusCode;
 
-            // Intentar extraer detalles si es un error de Supabase/PostgreSQL
+            // Intentar extraer detalles si es un error de Supabase/PostgreSQL usando reflexión segura
             string? dbError = null;
-            if (ex.GetType().Name == "PostgrestException")
+            if (ex.GetType().Name.Contains("PostgrestException"))
             {
-                // Usamos dynamic para evitar dependencia directa si el tipo es difícil de castear aquí
-                dynamic dex = ex;
-                dbError = $"DB Error: {dex.Message}. Details: {dex.Details}. Hint: {dex.Hint}";
+                try {
+                    var msg = ex.GetType().GetProperty("Message")?.GetValue(ex)?.ToString();
+                    var details = ex.GetType().GetProperty("Details")?.GetValue(ex)?.ToString();
+                    var hint = ex.GetType().GetProperty("Hint")?.GetValue(ex)?.ToString();
+                    dbError = $"DB Error: {msg}. Details: {details}. Hint: {hint}";
+                } catch {
+                    dbError = "Error de base de datos (detalles no disponibles vía reflexión).";
+                }
             }
 
             var respuesta = new
             {
                 error = ex.Message,
                 dbDetails = dbError,
-                mensaje = "Ocurrió un error en el servidor. Revisa los detalles."
+                mensaje = "Error interno del servidor. Revisa los detalles."
             };
 
             await context.Response.WriteAsync(
