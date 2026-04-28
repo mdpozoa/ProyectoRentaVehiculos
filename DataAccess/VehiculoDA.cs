@@ -30,8 +30,7 @@ namespace ProyectoRentaVehiculos.DataAccess
         public async Task<Vehiculo?> CreateAsync(Vehiculo vehiculo)
         {
             vehiculo.IdVehiculo = null;
-            await _supabase.From<Vehiculo>().Insert(vehiculo, new Postgrest.QueryOptions { ReturnType = Postgrest.QueryOptions.ReturnType.Minimal });
-            var response = await _supabase.From<Vehiculo>().Where(x => x.PlacaVehiculo == vehiculo.PlacaVehiculo).Get();
+            var response = await _supabase.From<Vehiculo>().Insert(vehiculo);
             return response.Models.FirstOrDefault();
         }
 

@@ -26,21 +26,8 @@ namespace ProyectoRentaVehiculos.DataAccess
 
         public async Task<Reserva?> CreateReserva(Reserva r)
         {
-            // Aseguramos que el ID no se envíe en el INSERT (lo genera la DB)
             r.IdReserva = null;
-
-            // Insertamos sin devolver el registro (evita que la librería incluya id=null)
-            await _supabase.From<Reserva>().Insert(r, new Postgrest.QueryOptions { ReturnType = Postgrest.QueryOptions.ReturnType.Minimal });
-
-            // Recuperamos la reserva recién creada buscando por campos únicos de negocio
-            var res = await _supabase.From<Reserva>()
-                .Where(x => x.IdUsuario == r.IdUsuario)
-                .Where(x => x.IdVehiculo == r.IdVehiculo)
-                .Where(x => x.FInicioReserva == r.FInicioReserva)
-                .Order("id_reserva", Postgrest.Constants.Ordering.Descending)
-                .Limit(1)
-                .Get();
-
+            var res = await _supabase.From<Reserva>().Insert(r);
             return res.Models.FirstOrDefault();
         }
 
@@ -62,7 +49,7 @@ namespace ProyectoRentaVehiculos.DataAccess
 
         public async Task<Contrato?> GetContratoById(int id)
         {
-            var res = await _supabase.From<Contrato>().Where(x => x.IdContrato == id).Get();
+            var res = await _supabase.From<Contrato>().Where(x => x.IdContrato == (int?)id).Get();
             return res.Models.FirstOrDefault();
         }
 
@@ -74,8 +61,8 @@ namespace ProyectoRentaVehiculos.DataAccess
 
         public async Task<Contrato?> CreateContrato(Contrato c)
         {
+            c.IdContrato = null;
             await _supabase.From<Contrato>().Insert(c);
-            // Recuperar el registro insertado por clave de negocio para obtener el ID generado
             var res = await _supabase.From<Contrato>().Where(x => x.IdReserva == c.IdReserva).Get();
             return res.Models.FirstOrDefault();
         }
@@ -87,6 +74,6 @@ namespace ProyectoRentaVehiculos.DataAccess
         }
 
         public async Task DeleteContrato(int id) =>
-            await _supabase.From<Contrato>().Where(x => x.IdContrato == id).Delete();
+            await _supabase.From<Contrato>().Where(x => x.IdContrato == (int?)id).Delete();
     }
 }

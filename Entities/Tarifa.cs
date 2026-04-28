@@ -8,7 +8,7 @@ namespace ProyectoRentaVehiculos.Entities
     [Table("tarifa")]
     public class Tarifa : BaseModel
     {
-        [PrimaryKey("id_tarifa", true)]
+        [PrimaryKey("id_tarifa", false)]
         [JsonPropertyName("ID_Tarifa")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public int? IdTarifa { get; set; }

@@ -8,7 +8,7 @@ namespace ProyectoRentaVehiculos.Entities
     [Table("kardex")]
     public class Kardex : BaseModel
     {
-        [PrimaryKey("id_kardex", true)]
+        [PrimaryKey("id_kardex", false)]
         [JsonPropertyName("ID_Kardex")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public int? IdKardex { get; set; }

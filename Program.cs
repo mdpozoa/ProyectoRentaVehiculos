@@ -92,7 +92,7 @@ builder.Services.AddScoped<ProyectoRentaVehiculos.Business.VehiculoBusiness>();
 builder.Services.AddScoped<ProyectoRentaVehiculos.DataAccess.ReservaDA>();
 builder.Services.AddScoped<ProyectoRentaVehiculos.Business.ReservaBusiness>();
 
-builder.Services.AddScoped<ProyectoRentaVehiculos.DataAccess.FacturacionDA>();
+builder.Services.AddScoped<ProyectoRentaVehiculos.DataAccess.MiscDA>();
 builder.Services.AddScoped<ProyectoRentaVehiculos.Business.MiscBusiness>();
 
 builder.Services.AddScoped<ProyectoRentaVehiculos.DataAccess.PersonaDA>();

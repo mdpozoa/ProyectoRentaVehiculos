@@ -21,31 +21,21 @@ namespace ProyectoRentaVehiculos.DataAccess
             return response.Models.ToList();
         }
 
-        public async Task<Usuario?> CreateAsync(Usuario usuario)
-        {
-            // Hashear la contraseña antes de guardar
-            usuario.PassUsuario = BCrypt.Net.BCrypt.HashPassword(usuario.PassUsuario);
-            usuario.IdUsuario = null;
-            await _supabase.From<Usuario>().Insert(usuario, new Postgrest.QueryOptions { ReturnType = Postgrest.QueryOptions.ReturnType.Minimal });
-            var response = await _supabase.From<Usuario>().Where(x => x.UserUsuario == usuario.UserUsuario).Get();
-            return response.Models.FirstOrDefault();
-        }
-
         public async Task<Usuario?> GetByIdAsync(int id)
         {
             var response = await _supabase.From<Usuario>().Where(x => x.IdUsuario == (int?)id).Get();
             return response.Models.FirstOrDefault();
         }
 
+        public async Task<Usuario?> CreateAsync(Usuario usuario)
+        {
+            usuario.IdUsuario = null;
+            var response = await _supabase.From<Usuario>().Insert(usuario);
+            return response.Models.FirstOrDefault();
+        }
+
         public async Task<Usuario?> UpdateAsync(Usuario usuario)
         {
-            // Si viene una contraseña nueva, hashearla antes de actualizar
-            if (!string.IsNullOrWhiteSpace(usuario.PassUsuario) &&
-                !usuario.PassUsuario.StartsWith("$2"))
-            {
-                usuario.PassUsuario = BCrypt.Net.BCrypt.HashPassword(usuario.PassUsuario);
-            }
-
             var response = await _supabase.From<Usuario>().Update(usuario);
             return response.Models.FirstOrDefault();
         }

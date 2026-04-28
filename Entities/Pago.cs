@@ -7,7 +7,7 @@ namespace ProyectoRentaVehiculos.Entities
     [Table("pago")]
     public class Pago : BaseModel
     {
-        [PrimaryKey("id_pago", true)]
+        [PrimaryKey("id_pago", false)]
         [JsonPropertyName("ID_Pago")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public int? IdPago { get; set; }

@@ -7,8 +7,8 @@ namespace ProyectoRentaVehiculos.Business
 {
     public class MiscBusiness
     {
-        private readonly FacturacionDA _miscDA;
-        public MiscBusiness(FacturacionDA miscDA) { _miscDA = miscDA; }
+        private readonly MiscDA _miscDA;
+        public MiscBusiness(MiscDA miscDA) { _miscDA = miscDA; }
 
         // ── FACTURA ─────────────────────────────────────────────────────────
         public async Task<List<Factura>> GetFacturas()        => await _miscDA.GetFacturas();

@@ -7,7 +7,7 @@ namespace ProyectoRentaVehiculos.Entities
     [Table("contrato")]
     public class Contrato : BaseModel
     {
-        [PrimaryKey("id_contrato", true)]
+        [PrimaryKey("id_contrato", false)]
         [JsonPropertyName("ID_Contrato")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public int? IdContrato { get; set; }
