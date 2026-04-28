@@ -7,9 +7,10 @@ namespace ProyectoRentaVehiculos.Entities
     [Table("marca")]
     public class Marca : BaseModel
     {
-        [PrimaryKey("id_marca", false)]
+        [PrimaryKey("id_marca", true)]
         [JsonPropertyName("ID_Marca")]
-        public int IdMarca { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public int? IdMarca { get; set; }
 
         [Column("nombre_marca")]
         [JsonPropertyName("Nombre_Marca")]

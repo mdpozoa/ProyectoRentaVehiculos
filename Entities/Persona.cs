@@ -7,9 +7,10 @@ namespace ProyectoRentaVehiculos.Entities
     [Table("persona")]
     public class Persona : BaseModel
     {
-        [PrimaryKey("id_persona", false)]
+        [PrimaryKey("id_persona", true)]
         [JsonPropertyName("ID_Persona")]
-        public int IdPersona { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public int? IdPersona { get; set; }
 
         [Column("id_ciudad")]
         [JsonPropertyName("ID_Ciudad")]

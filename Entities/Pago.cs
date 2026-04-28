@@ -10,7 +10,7 @@ namespace ProyectoRentaVehiculos.Entities
         [PrimaryKey("id_pago", true)]
         [JsonPropertyName("ID_Pago")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-        public int IdPago { get; set; }
+        public int? IdPago { get; set; }
 
         [Column("id_factura")]
         [JsonPropertyName("ID_Factura")]

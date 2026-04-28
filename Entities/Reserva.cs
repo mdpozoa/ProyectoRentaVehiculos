@@ -11,7 +11,7 @@ namespace ProyectoRentaVehiculos.Entities
         [PrimaryKey("id_reserva", true)]
         [JsonPropertyName("ID_Reserva")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-        public int IdReserva { get; set; }
+        public int? IdReserva { get; set; }
 
         [Column("id_usuario")]
         [JsonPropertyName("ID_Usuario")]

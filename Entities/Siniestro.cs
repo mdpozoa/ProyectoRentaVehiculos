@@ -8,9 +8,10 @@ namespace ProyectoRentaVehiculos.Entities
     [Table("siniestro")]
     public class Siniestro : BaseModel
     {
-        [PrimaryKey("id_siniestro", false)]
+        [PrimaryKey("id_siniestro", true)]
         [JsonPropertyName("ID_Siniestro")]
-        public int IdSiniestro { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public int? IdSiniestro { get; set; }
 
         [Column("id_reserva")]
         [JsonPropertyName("ID_Reserva")]
