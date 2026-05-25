@@ -1,7 +1,8 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import api from '../services/api';
+// Usamos el API Gateway para consultar al inventario-service (endpoint de booking)
+import { apiGateway } from '@/services/http.js';
 
 const router = useRouter();
 const vehiculos = ref([]);
@@ -10,72 +11,88 @@ const error = ref('');
 
 onMounted(async () => {
   try {
-    const res = await api.get('/Vehiculos');
-    vehiculos.value = res.data;
-  } catch {
+    // GET /v1/vehiculos/booking -> inventario-service
+    const res = await apiGateway.get('/v1/vehiculos/booking');
+    console.log('[DEBUG] Vehículos (Booking API) response:', res.data);
+    const responseData = res.data;
+    
+    // El booking DTO devuelve { success: true, data: { data: [...] } }
+    if (responseData && responseData.data && Array.isArray(responseData.data.data)) {
+      vehiculos.value = responseData.data.data;
+    } else {
+      vehiculos.value = [];
+    }
+    console.log('[DEBUG] Vehículos cargados:', vehiculos.value.length);
+  } catch (err) {
+    console.error('[ERROR] Error cargando vehículos:', err);
     error.value = 'No se pudieron cargar los vehículos.';
   } finally {
     cargando.value = false;
   }
 });
 
+const isDisponible = (v) => {
+  return v.disponible;
+};
+
+const getStatusText = (v) => {
+  return v.status || 'No disponible';
+};
+
 const reservar = (vehiculo) => {
   const token = localStorage.getItem('auth_token');
   if (!token) {
-    // Guardar el vehículo elegido y redirigir al login
     localStorage.setItem('vehiculo_pendiente', JSON.stringify(vehiculo));
     router.push('/login');
     return;
   }
-  // Ya está logueado, ir directo a reservar
-  router.push({ name: 'reservar', params: { id: vehiculo.ID_Vehiculo } });
-};
-
-const combustibleIcon = (tipo) => {
-  const iconos = { Gasolina: '⛽', Diésel: '🛢️', Eléctrico: '⚡', Híbrido: '🔋' };
-  return iconos[tipo] || '⛽';
+  router.push({ name: 'reservar', params: { id: vehiculo.id } });
 };
 </script>
 
 <template>
   <div class="catalogo">
     <div class="catalogo-header">
-      <h1>Catálogo de vehículos (v1.0.5)</h1>
+      <h1>Catálogo de vehículos</h1>
       <p>Selecciona el vehículo que deseas reservar</p>
     </div>
 
     <div v-if="cargando" class="estado-msg">Cargando vehículos...</div>
     <div v-else-if="error" class="estado-msg error">{{ error }}</div>
+    <div v-else-if="vehiculos.length === 0" class="estado-msg">No hay vehículos disponibles en este momento.</div>
 
     <div v-else class="vehiculos-grid">
       <div
         v-for="v in vehiculos"
-        :key="v.ID_Vehiculo"
+        :key="v.id"
         class="vehiculo-card"
-        :class="{ 'no-disponible': v.Estado_Vehiculo !== 'Disponible' }"
+        :class="{ 'no-disponible': !isDisponible(v) }"
       >
-        <div class="card-badge" :class="v.Estado_Vehiculo === 'Disponible' ? 'badge-ok' : 'badge-no'">
-          {{ v.Estado_Vehiculo }}
+        <div class="card-badge" :class="isDisponible(v) ? 'badge-ok' : 'badge-no'">
+          {{ getStatusText(v) }}
         </div>
 
-        <div class="card-icono">🚗</div>
+        <div class="card-imagen-wrapper">
+          <img v-if="v.imagenUrl" :src="v.imagenUrl" :alt="v.nombre" class="card-imagen" />
+          <div v-else class="card-icono">🚗</div>
+        </div>
 
         <div class="card-info">
-          <h3>{{ v.Color_Vehiculo }} · {{ v.Anio_Vehiculo }}</h3>
-          <p class="placa">{{ v.Placa_Vehiculo }}</p>
+          <h3>{{ v.nombre }}</h3>
+          <p class="categoria">{{ v.categoria }}</p>
 
           <div class="card-detalles">
-            <span>{{ combustibleIcon(v.Combustible_Vehiculo) }} {{ v.Combustible_Vehiculo }}</span>
-            <span>📍 {{ v.Kilometraje_Vehiculo?.toLocaleString() }} km</span>
+            <span>{{ v.moneda }} {{ v.precioPorDia }} / día</span>
           </div>
+          <p class="descripcion" v-if="v.descripcion">{{ v.descripcion }}</p>
         </div>
 
         <button
           class="btn-reservar"
-          :disabled="v.Estado_Vehiculo !== 'Disponible'"
+          :disabled="!isDisponible(v)"
           @click="reservar(v)"
         >
-          {{ v.Estado_Vehiculo === 'Disponible' ? 'Reservar ahora →' : 'No disponible' }}
+          {{ isDisponible(v) ? 'Reservar ahora →' : 'No disponible' }}
         </button>
       </div>
     </div>

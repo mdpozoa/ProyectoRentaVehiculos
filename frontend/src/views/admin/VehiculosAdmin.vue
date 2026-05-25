@@ -1,74 +1,127 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import api from '../../services/api';
 import CrudModal from '../../components/CrudModal.vue';
+import { useCatalogos } from '@/composables/useCatalogos.js';
 
-const items = ref([]);
-const loading = ref(true);
-const error = ref(null);
-const showModal = ref(false);
-const modalMode = ref('create');
+// ── Datos de la tabla principal ───────────────────────────────────────────────
+const items        = ref([]);
+const loading      = ref(true);
+const error        = ref(null);
+const showModal    = ref(false);
+const modalMode    = ref('create');
 const selectedItem = ref(null);
 
-const PK = 'ID_Vehiculo';
-const ENDPOINT = '/Vehiculos';
+const PK          = 'ID_Vehiculo';
+const ENDPOINT    = '/Vehiculos';
 const MODULE_NAME = 'Vehículo';
 
-const fields = [
-  { key: 'ID_Vehiculo',        label: 'ID Vehículo',    type: 'number',  readOnly: true },
-  { key: 'ID_Modelo',          label: 'ID Modelo',      type: 'number',  required: true },
-  { key: 'ID_Categoria',       label: 'ID Categoría',   type: 'number',  required: true },
-  { key: 'ID_Agencia_Actual',  label: 'ID Agencia',     type: 'number',  required: true },
-  { key: 'Placa_Vehiculo',     label: 'Placa',          type: 'text',    required: true },
-  { key: 'Color_Vehiculo',     label: 'Color',          type: 'text',    required: true },
-  { key: 'Anio_Vehiculo',      label: 'Año',            type: 'number',  required: true, min: 1990, max: 2030 },
-  { key: 'Kilometraje_Vehiculo', label: 'Kilometraje',  type: 'decimal', required: true },
-  { key: 'Combustible_Vehiculo', label: 'Combustible',  type: 'select',  required: true,
-    options: [
-      { value: 'Gasolina', label: 'Gasolina' },
-      { value: 'Diésel',   label: 'Diésel' },
-      { value: 'Híbrido',  label: 'Híbrido' },
-      { value: 'Eléctrico',label: 'Eléctrico' },
-    ]
-  },
-  { key: 'Estado_Vehiculo',    label: 'Estado',         type: 'select',  required: true,
-    options: [
-      { value: 'Disponible',    label: 'Disponible' },
-      { value: 'Alquilado',     label: 'Alquilado' },
-      { value: 'Mantenimiento', label: 'En Mantenimiento' },
-      { value: 'Inactivo',      label: 'Inactivo' },
-    ]
-  },
-  { key: 'Fecha_Registro',     label: 'Fecha Registro', type: 'date',    readOnly: true },
-];
+// ── Catálogos dinámicos (composable singleton) ────────────────────────────────
+const {
+  modelos, categorias, agencias,
+  loadingCatalogos,
+  cargarCatalogos,
+} = useCatalogos();
 
+// ── Definición de campos (computed: se actualiza al cargar los catálogos) ─────
+const fields = computed(() => [
+  { key: 'ID_Vehiculo',  label: 'ID Vehículo', type: 'number', readOnly: true },
+
+  // FK → select con opciones del API
+  {
+    key: 'ID_Modelo', label: 'Modelo', type: 'select', required: true,
+    options: modelos.value,
+  },
+  {
+    key: 'ID_Categoria', label: 'Categoría', type: 'select', required: true,
+    options: categorias.value,
+  },
+  {
+    key: 'ID_Agencia_Actual', label: 'Agencia', type: 'select', required: true,
+    options: agencias.value,
+  },
+
+  // Campos directos
+  { key: 'Placa_Vehiculo',       label: 'Placa',       type: 'text',    required: true },
+  { key: 'Color_Vehiculo',       label: 'Color',       type: 'text',    required: true },
+  { key: 'Anio_Vehiculo',        label: 'Año',         type: 'number',  required: true, min: 1990, max: 2030 },
+  { key: 'Kilometraje_Vehiculo', label: 'Kilometraje', type: 'decimal', required: true },
+
+  // Selects estáticos
+  {
+    key: 'Combustible_Vehiculo', label: 'Combustible', type: 'select', required: true,
+    options: [
+      { value: 'Gasolina',  label: 'Gasolina'  },
+      { value: 'Diésel',    label: 'Diésel'    },
+      { value: 'Híbrido',   label: 'Híbrido'   },
+      { value: 'Eléctrico', label: 'Eléctrico' },
+    ],
+  },
+  {
+    key: 'Estado_Vehiculo', label: 'Estado', type: 'select', required: true,
+    options: [
+      { value: 'Disponible',    label: 'Disponible'       },
+      { value: 'Alquilado',     label: 'Alquilado'        },
+      { value: 'Mantenimiento', label: 'En Mantenimiento' },
+      { value: 'Inactivo',      label: 'Inactivo'         },
+    ],
+  },
+
+  { key: 'Fecha_Registro', label: 'Fecha Registro', type: 'date', readOnly: true },
+]);
+
+// Guard: el botón "Nuevo" se bloquea hasta que los catálogos estén disponibles
+const catalogosListos = computed(
+  () => !loadingCatalogos.value && modelos.value.length > 0,
+);
+
+// ── Fetch de vehículos ────────────────────────────────────────────────────────
 const fetchItems = async () => {
-  loading.value = true; error.value = null;
+  loading.value = true;
+  error.value   = null;
   try {
-    const res = await api.get(ENDPOINT);
+    const res   = await api.get(ENDPOINT);
     items.value = res.data;
   } catch (err) {
     error.value = err.response?.status === 401
       ? 'No autorizado. Por favor inicie sesión como Administrador.'
       : 'Error al cargar los datos desde el servidor.';
-  } finally { loading.value = false; }
+  } finally {
+    loading.value = false;
+  }
 };
 
-const openCreate = () => { modalMode.value = 'create'; selectedItem.value = null; showModal.value = true; };
-const openEdit   = (item) => { modalMode.value = 'edit'; selectedItem.value = { ...item }; showModal.value = true; };
-const openView   = (item) => { modalMode.value = 'view'; selectedItem.value = { ...item }; showModal.value = true; };
+// ── Acciones del modal ────────────────────────────────────────────────────────
+const openCreate = () => {
+  if (!catalogosListos.value) return;
+  modalMode.value = 'create'; selectedItem.value = null; showModal.value = true;
+};
+const openEdit = (item) => {
+  modalMode.value = 'edit'; selectedItem.value = { ...item }; showModal.value = true;
+};
+const openView = (item) => {
+  modalMode.value = 'view'; selectedItem.value = { ...item }; showModal.value = true;
+};
 
 const deleteItem = async (item) => {
   if (!confirm(`¿Eliminar ${MODULE_NAME} ${item['Placa_Vehiculo']} (ID ${item[PK]})?`)) return;
-  try { await api.delete(`${ENDPOINT}/${item[PK]}`); await fetchItems(); }
-  catch { alert('Error al eliminar. Puede tener registros relacionados.'); }
+  try {
+    await api.delete(`${ENDPOINT}/${item[PK]}`);
+    await fetchItems();
+  } catch {
+    alert('Error al eliminar. Puede tener registros relacionados.');
+  }
 };
 
-// Columnas visibles en la tabla (no mostrar todas para no saturar)
 const tableFields = ['ID_Vehiculo', 'Placa_Vehiculo', 'Color_Vehiculo', 'Anio_Vehiculo', 'Combustible_Vehiculo', 'Estado_Vehiculo'];
 
-onMounted(fetchItems);
+// Carga en paralelo: tabla de vehículos + catálogos de referencia
+onMounted(() => {
+  fetchItems();
+  cargarCatalogos();
+});
 </script>
+
 
 <template>
   <div class="crud-view">
@@ -76,8 +129,19 @@ onMounted(fetchItems);
       <h1 class="page-title text-primary">Módulo Vehículos</h1>
       <p class="text-muted">Gestiona el inventario completo de vehículos.</p>
     </div>
-    <div style="display:flex; justify-content:flex-end; margin-bottom:2rem;">
-      <button @click="openCreate" class="btn-primary" style="padding:0.75rem 2rem; display:flex; align-items:center; gap:0.5rem;">
+    <div style="display:flex; justify-content:flex-end; align-items:center; gap:1rem; margin-bottom:2rem;">
+      <!-- Indicador sutil de carga de catálogos -->
+      <span v-if="loadingCatalogos" style="font-size:0.82rem; color:var(--text-muted); display:flex; align-items:center; gap:0.4rem;">
+        <span class="spinner-dot"></span> Cargando catálogos...
+      </span>
+      <button
+        @click="openCreate"
+        class="btn-primary"
+        :disabled="!catalogosListos"
+        :title="!catalogosListos ? 'Esperando catálogos...' : 'Crear nuevo vehículo'"
+        style="padding:0.75rem 2rem; display:flex; align-items:center; gap:0.5rem; transition: opacity 0.3s;"
+        :style="{ opacity: catalogosListos ? 1 : 0.5 }"
+      >
         <span style="font-size:1.25rem;">+</span> Nuevo Vehículo
       </button>
     </div>
@@ -134,4 +198,17 @@ onMounted(fetchItems);
 .chip-green  { background:rgba(30,200,100,0.2); color:#4ade80; }
 .chip-yellow { background:rgba(250,200,30,0.2); color:#facc15; }
 .chip-red    { background:rgba(250,50,50,0.2);  color:#f87171; }
+
+/* Spinner de catálogos */
+.spinner-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--primary, #7c3aed);
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1);   }
+  50%       { opacity: 0.4; transform: scale(0.7); }
+}
 </style>

@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import api from '../../services/api';
 import CrudModal from '../../components/CrudModal.vue';
+import { useCatalogos } from '@/composables/useCatalogos.js';
 
 const items = ref([]);
 const loading = ref(true);
@@ -14,23 +15,44 @@ const PK = 'ID_Reserva';
 const ENDPOINT = '/Reservas';
 const MODULE_NAME = 'Reserva';
 
-const fields = [
-  { key: 'ID_Reserva',      label: 'ID Reserva',   type: 'number',   readOnly: true },
-  { key: 'ID_Usuario',      label: 'ID Usuario',   type: 'number',   required: true },
-  { key: 'ID_Vehiculo',     label: 'ID Vehículo',  type: 'number',   required: true },
-  { key: 'ID_Agencia',      label: 'ID Agencia',   type: 'number',   required: true },
-  { key: 'Fecha_Reserva',   label: 'Fecha Reserva',type: 'date',     readOnly: true },
-  { key: 'F_Inicio_Reserva',label: 'Fecha Inicio', type: 'date',     required: true },
-  { key: 'F_Final_Reserva', label: 'Fecha Fin',    type: 'date',     required: true },
-  { key: 'Estado_Reserva',  label: 'Estado',       type: 'select',   required: true,
+const { vehiculos, agencias, loadingCatalogos, cargarCatalogos } = useCatalogos();
+
+// Usuarios se carga localmente (no es un catálogo de referencia global)
+const usuariosOpts = ref([]);
+const loadingUsuarios = ref(false);
+const fetchUsuarios = async () => {
+  loadingUsuarios.value = true;
+  try {
+    const res = await api.get('/Usuarios');
+    usuariosOpts.value = (res.data ?? []).map(u => ({
+      value: u.ID_Usuario,
+      label: `${u.User_Usuario} (ID ${u.ID_Usuario})`,
+    }));
+  } catch { usuariosOpts.value = []; }
+  finally { loadingUsuarios.value = false; }
+};
+
+const fields = computed(() => [
+  { key: 'ID_Reserva',       label: 'ID Reserva',    type: 'number', readOnly: true },
+  { key: 'ID_Usuario',       label: 'Usuario',       type: 'select', required: true, options: usuariosOpts.value },
+  { key: 'ID_Vehiculo',      label: 'Vehículo',      type: 'select', required: true, options: vehiculos.value },
+  { key: 'ID_Agencia',       label: 'Agencia',       type: 'select', required: true, options: agencias.value },
+  { key: 'Fecha_Reserva',    label: 'Fecha Reserva', type: 'date',   readOnly: true },
+  { key: 'F_Inicio_Reserva', label: 'Fecha Inicio',  type: 'date',   required: true },
+  { key: 'F_Final_Reserva',  label: 'Fecha Fin',     type: 'date',   required: true },
+  { key: 'Estado_Reserva',   label: 'Estado',        type: 'select', required: true,
     options: [
-      { value: 'pendiente',  label: 'Pendiente' },
+      { value: 'pendiente',  label: 'Pendiente'  },
       { value: 'confirmada', label: 'Confirmada' },
-      { value: 'cancelada',  label: 'Cancelada' },
+      { value: 'cancelada',  label: 'Cancelada'  },
       { value: 'completada', label: 'Completada' },
     ]
   },
-];
+]);
+
+const catalogosListos = computed(
+  () => !loadingCatalogos.value && !loadingUsuarios.value && vehiculos.value.length > 0
+);
 
 const fetchItems = async () => {
   loading.value = true; error.value = null;
@@ -44,7 +66,7 @@ const fetchItems = async () => {
   } finally { loading.value = false; }
 };
 
-const openCreate = () => { modalMode.value = 'create'; selectedItem.value = null; showModal.value = true; };
+const openCreate = () => { if (!catalogosListos.value) return; modalMode.value = 'create'; selectedItem.value = null; showModal.value = true; };
 const openEdit   = (item) => { modalMode.value = 'edit'; selectedItem.value = { ...item }; showModal.value = true; };
 const openView   = (item) => { modalMode.value = 'view'; selectedItem.value = { ...item }; showModal.value = true; };
 
@@ -54,7 +76,7 @@ const deleteItem = async (item) => {
   catch { alert('Error al eliminar. Puede tener registros relacionados.'); }
 };
 
-onMounted(fetchItems);
+onMounted(() => { fetchItems(); cargarCatalogos(); fetchUsuarios(); });
 </script>
 
 <template>

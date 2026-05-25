@@ -59,6 +59,9 @@ const router = createRouter({
         { path: 'facturas',        name: 'admin-facturas',        component: () => import('../views/admin/Facturas.vue') },
         { path: 'detallefacturas', name: 'admin-detallefacturas', component: () => import('../views/admin/DetalleFactura.vue') },
         { path: 'pagos',           name: 'admin-pagos',           component: () => import('../views/admin/Pagos.vue') },
+        // Booking Microservice
+        { path: 'booking-test',    name: 'admin-booking-test',    component: () => import('../views/admin/BookingTest.vue') },
+        { path: 'booking-admin',   name: 'admin-booking-admin',   component: () => import('../views/admin/BookingAdmin.vue') },
       ]
     }
   ]

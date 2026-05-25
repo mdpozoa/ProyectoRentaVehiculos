@@ -1,0 +1,290 @@
+openapi: 3.0.3
+info:
+  title: UrbanCar EC — Servicio de Inventario Booking API
+  description: Contrato API individual para el módulo de Booking del Servicio de Inventario. Permite consultar el catálogo de vehículos, ver detalles de vehículos y verificar su disponibilidad.
+  version: 1.0.0
+
+servers:
+  - url: https://nginx-frontend.ambitioushill-8cbf622c.eastus2.azurecontainerapps.io/api/v1/mateodavid
+    description: Servidor de Producción (a través del API Gateway Nginx)
+
+paths:
+  /vehiculos/booking:
+    get:
+      summary: Listar vehículos para Booking
+      description: Obtiene el catálogo de vehículos activos filtrando por agencia, categoría y estado de disponibilidad.
+      operationId: ListVehiculosBooking
+      parameters:
+        - name: agenciaId
+          in: query
+          description: ID de la agencia para filtrar
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: categoriaId
+          in: query
+          description: ID de la categoría de vehículo para filtrar
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          description: Estado actual del vehículo en inventario
+          required: false
+          schema:
+            type: string
+            enum: [DISPONIBLE, EN_USO, MANTENIMIENTO, RESERVADO, INACTIVO]
+            default: DISPONIBLE
+        - name: page
+          in: query
+          description: Número de página para la paginación
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Cantidad máxima de registros por página
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Catálogo obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehiculoListResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /vehiculos/booking/{id}:
+    get:
+      summary: Obtener vehículo por ID para Booking
+      description: Recupera la información detallada de un vehículo específico adaptada al DTO de Booking.
+      operationId: GetVehiculoBookingById
+      parameters:
+        - name: id
+          in: path
+          description: ID único (UUID) del vehículo
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Vehículo encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehiculoSingleResponse'
+        '404':
+          description: Vehículo no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /vehiculos/booking/{id}/disponibilidad:
+    get:
+      summary: Verificar disponibilidad del vehículo
+      description: Consulta si un vehículo específico está disponible basándose en su estado actual e indicador de activo.
+      operationId: GetVehiculoDisponibilidad
+      parameters:
+        - name: id
+          in: path
+          description: ID único (UUID) del vehículo
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Disponibilidad verificada con éxito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisponibilidadResponse'
+        '404':
+          description: Vehículo no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    VehiculoBookingDto:
+      type: object
+      required:
+        - id
+        - nombre
+        - precioPorDia
+        - moneda
+        - disponible
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: c8a67ebc-06dd-4fc7-8902-86f9848e03af
+        nombre:
+          type: string
+          description: Nombre compuesto del vehículo (Marca Modelo Año)
+          example: Chevrolet Sail 2023
+        descripcion:
+          type: string
+          nullable: true
+          example: Auto ideal para ciudad, muy económico en consumo.
+        precioPorDia:
+          type: number
+          format: double
+          example: 25.50
+        moneda:
+          type: string
+          example: USD
+        categoria:
+          type: string
+          nullable: true
+          example: Económico
+        agenciaId:
+          type: string
+          format: uuid
+          nullable: true
+          example: b7b3e1c2-1234-5678-abcd-ef1234567890
+        disponible:
+          type: boolean
+          description: Indica si el vehículo está actualmente disponible y activo
+          example: true
+        status:
+          type: string
+          description: Estado físico y lógico del vehículo
+          enum: [DISPONIBLE, EN_USO, MANTENIMIENTO, RESERVADO, INACTIVO]
+          example: DISPONIBLE
+        imagenUrl:
+          type: string
+          format: uri
+          nullable: true
+          example: https://storage.googleapis.com/bucket/vehiculos/chevrolet-sail.png
+
+    VehiculoListResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - data
+            - total
+            - page
+            - limit
+            - totalPages
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/VehiculoBookingDto'
+            total:
+              type: integer
+              example: 12
+            page:
+              type: integer
+              example: 1
+            limit:
+              type: integer
+              example: 20
+            totalPages:
+              type: integer
+              example: 1
+
+    VehiculoSingleResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/VehiculoBookingDto'
+
+    DisponibilidadDto:
+      type: object
+      required:
+        - vehiculoId
+        - disponible
+        - status
+        - mensaje
+      properties:
+        vehiculoId:
+          type: string
+          format: uuid
+          example: c8a67ebc-06dd-4fc7-8902-86f9848e03af
+        disponible:
+          type: boolean
+          example: true
+        status:
+          type: string
+          example: DISPONIBLE
+        mensaje:
+          type: string
+          example: El vehículo está disponible para alquiler
+
+    DisponibilidadResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/DisponibilidadDto'
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: NOT_FOUND
+            message:
+              type: string
+              example: Vehiculo c8a67ebc-06dd-4fc7-8902-86f9848e03af no encontrado

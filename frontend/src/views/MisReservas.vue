@@ -40,9 +40,8 @@ const cancelarReserva = async (reserva) => {
   if (!confirm('¿Estás seguro de que deseas cancelar esta reserva?')) return;
   
   try {
-    // En lugar de DELETE, hacemos un PUT para cambiar el estado a Cancelada
-    const payload = { ...reserva, Estado_Reserva: 'Cancelada' };
-    await api.put(`/Reservas`, payload);
+    // Consumimos el endpoint DELETE para cancelar la reserva (como dicta el contrato)
+    await api.delete(`/Reservas/${reserva.ID_Reserva}`);
     await fetchReservas(); // Recargar la lista
     alert('Reserva cancelada exitosamente.');
   } catch (err) {
@@ -135,11 +134,11 @@ const continuarPago = async (reserva) => {
           </div>
         </div>
 
-        <div v-if="reserva.Estado_Reserva === 'Pendiente'" class="reserva-footer">
-          <p class="text-muted text-small">Esta reserva aún no ha sido pagada.</p>
+        <div v-if="reserva.Estado_Reserva === 'Pendiente' || reserva.Estado_Reserva === 'Confirmada' || reserva.Estado_Reserva === 'Pagada'" class="reserva-footer">
+          <p v-if="reserva.Estado_Reserva === 'Pendiente'" class="text-muted text-small">Esta reserva aún no ha sido pagada.</p>
           <div style="display:flex; gap:0.5rem;">
-            <button class="btn-pagar" style="flex:1;" @click="continuarPago(reserva)">Continuar al Pago</button>
-            <button class="btn-eliminar" @click="cancelarReserva(reserva)">Cancelar reserva</button>
+            <button v-if="reserva.Estado_Reserva === 'Pendiente'" class="btn-pagar" style="flex:1;" @click="continuarPago(reserva)">Continuar al Pago</button>
+            <button class="btn-eliminar" style="flex:1;" @click="cancelarReserva(reserva)">Cancelar reserva</button>
           </div>
         </div>
       </div>

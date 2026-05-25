@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import api from '../../services/api';
 import CrudModal from '../../components/CrudModal.vue';
 
@@ -14,19 +14,36 @@ const PK = 'ID_Usuario';
 const ENDPOINT = '/Usuarios';
 const MODULE_NAME = 'Usuario';
 
-const fields = [
-  { key: 'ID_Usuario',   label: 'ID Usuario',   type: 'number', readOnly: true },
-  { key: 'ID_Persona',   label: 'ID Persona',   type: 'number', required: true },
-  { key: 'User_Usuario', label: 'Nombre Usuario', type: 'text', required: true },
-  { key: 'Pass_Usuario', label: 'Contraseña',   type: 'password', required: true },
-  { key: 'Rol_Usuario',  label: 'Rol',          type: 'select', required: true,
+// Personas: se cargan localmente porque no todas las vistas las necesitan
+const personasOpts = ref([]);
+const loadingPersonas = ref(false);
+const fetchPersonas = async () => {
+  loadingPersonas.value = true;
+  try {
+    const res = await api.get('/Personas');
+    personasOpts.value = (res.data ?? []).map(p => ({
+      value: p.ID_Persona,
+      label: `${p.Nombres_Persona ?? ''} ${p.Apellidos_Persona ?? ''}`.trim() + ` (CI: ${p.Cedula_Persona ?? p.CI_Persona ?? p.ID_Persona})`,
+    }));
+  } catch { personasOpts.value = []; }
+  finally { loadingPersonas.value = false; }
+};
+
+const fields = computed(() => [
+  { key: 'ID_Usuario',    label: 'ID Usuario',     type: 'number',   readOnly: true },
+  { key: 'ID_Persona',    label: 'Persona',         type: 'select',   required: true, options: personasOpts.value },
+  { key: 'User_Usuario',  label: 'Nombre Usuario',  type: 'text',     required: true },
+  { key: 'Pass_Usuario',  label: 'Contraseña',      type: 'password', required: true },
+  { key: 'Rol_Usuario',   label: 'Rol',             type: 'select',   required: true,
     options: [
       { value: 'Admin',   label: 'Administrador' },
-      { value: 'Cliente', label: 'Cliente' },
+      { value: 'Cliente', label: 'Cliente'       },
     ]
   },
   { key: 'Fecha_Usuario', label: 'Fecha Registro', type: 'date', readOnly: true },
-];
+]);
+
+const catalogosListos = computed(() => !loadingPersonas.value && personasOpts.value.length > 0);
 
 const fetchItems = async () => {
   loading.value = true; error.value = null;
@@ -40,7 +57,7 @@ const fetchItems = async () => {
   } finally { loading.value = false; }
 };
 
-const openCreate = () => { modalMode.value = 'create'; selectedItem.value = null; showModal.value = true; };
+const openCreate = () => { if (!catalogosListos.value) return; modalMode.value = 'create'; selectedItem.value = null; showModal.value = true; };
 const openEdit   = (item) => { modalMode.value = 'edit'; selectedItem.value = { ...item }; showModal.value = true; };
 const openView   = (item) => { modalMode.value = 'view'; selectedItem.value = { ...item }; showModal.value = true; };
 
@@ -50,7 +67,7 @@ const deleteItem = async (item) => {
   catch { alert('Error al eliminar. Puede tener registros relacionados.'); }
 };
 
-onMounted(fetchItems);
+onMounted(() => { fetchItems(); fetchPersonas(); });
 </script>
 
 <template>

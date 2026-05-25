@@ -1,0 +1,542 @@
+openapi: 3.0.3
+info:
+  title: UrbanCar EC — Servicio de Operaciones Booking API
+  description: Contrato API individual para el módulo de Booking del Servicio de Operaciones. Gestiona el ciclo de vida de las reservas, el inicio de alquileres y el registro de devoluciones físicas.
+  version: 1.0.0
+
+servers:
+  - url: https://nginx-frontend.ambitioushill-8cbf622c.eastus2.azurecontainerapps.io/api/v1/mateodavid
+    description: Servidor de Producción (a través del API Gateway Nginx)
+
+paths:
+  /reservas/booking:
+    post:
+      summary: Crear una nueva reserva para Booking
+      description: Valida la disponibilidad actual del vehículo y su precio para registrar la reserva en estado PENDIENTE.
+      operationId: CreateReservaBooking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReservaRequestDto'
+      responses:
+        '201':
+          description: Reserva creada con éxito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservaResponse'
+        '400':
+          description: Errores de validación (fechas pasadas, campos faltantes, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Vehículo no encontrado en inventario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflicto (el vehículo ya tiene otra reserva activa)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: El vehículo no está disponible o carece de precio configurado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reservas/booking/{id}:
+    get:
+      summary: Obtener reserva por ID
+      description: Recupera el DTO de una reserva específica usando su identificador único.
+      operationId: GetReservaBookingById
+      parameters:
+        - name: id
+          in: path
+          description: ID único (UUID) de la reserva
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Reserva encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservaResponse'
+        '404':
+          description: Reserva no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      summary: Actualizar estado de una reserva
+      description: Transiciona el estado de la reserva siguiendo las reglas permitidas en la máquina de estados (ej. PENDIENTE -> CONFIRMADA, CONFIRMADA -> ACTIVA).
+      operationId: PatchReservaBookingStatus
+      parameters:
+        - name: id
+          in: path
+          description: ID único (UUID) de la reserva
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  description: Nuevo estado de la reserva
+                  enum: [PENDIENTE, CONFIRMADA, ACTIVA, COMPLETADA, CANCELADA]
+                  example: CONFIRMADA
+      responses:
+        '200':
+          description: Estado de la reserva actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservaResponse'
+        '400':
+          description: El estado proporcionado no es válido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Reserva no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Transición de estado no permitida por la máquina de estados
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /alquileres/booking:
+    post:
+      summary: Iniciar alquiler
+      description: Genera un registro de alquiler físico vinculando una reserva CONFIRMADA. Cambia la reserva a estado ACTIVA y notifica a inventario para cambiar el vehículo a EN_USO.
+      operationId: CreateAlquilerBooking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlquilerRequestDto'
+      responses:
+        '201':
+          description: Alquiler iniciado con éxito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlquilerResponse'
+        '400':
+          description: Falta el parámetro reservaId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Reserva no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflicto (ya existe un alquiler activo para esta reserva)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: La reserva no está en estado CONFIRMADA
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /devoluciones/booking:
+    post:
+      summary: Registrar devolución
+      description: Cierra el alquiler físico, calcula cargos adicionales si existen, transiciona la reserva a COMPLETADA y libera el vehículo asociado a DISPONIBLE con su nuevo kilometraje.
+      operationId: CreateDevolucionBooking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DevolucionRequestDto'
+      responses:
+        '201':
+          description: Devolución registrada con éxito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevolucionResponse'
+        '400':
+          description: Falta el parámetro alquilerId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Alquiler no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflicto (el alquiler ya tiene una devolución registrada)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: El alquiler no se encuentra en estado ACTIVO
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    ReservaRequestDto:
+      type: object
+      required:
+        - vehiculoId
+        - clienteId
+        - fechaInicio
+        - fechaFin
+      properties:
+        vehiculoId:
+          type: string
+          format: uuid
+          example: c8a67ebc-06dd-4fc7-8902-86f9848e03af
+        clienteId:
+          type: string
+          format: uuid
+          example: a1b2c3d4-5678-90ab-cdef-1234567890ab
+        agenciaId:
+          type: string
+          format: uuid
+          description: Opcional. Si se omite, se asigna la agencia actual del vehículo.
+          example: b7b3e1c2-1234-5678-abcd-ef1234567890
+        fechaInicio:
+          type: string
+          format: date-time
+          description: Fecha de inicio de reserva en ISO 8601
+          example: 2026-06-01T10:00:00Z
+        fechaFin:
+          type: string
+          format: date-time
+          description: Fecha de fin de reserva en ISO 8601
+          example: 2026-06-05T10:00:00Z
+
+    ReservaBookingDto:
+      type: object
+      required:
+        - id
+        - codigoReserva
+        - vehiculoId
+        - clienteId
+        - agenciaId
+        - fechaInicio
+        - fechaFin
+        - diasTotal
+        - totalAmount
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: e1f2g3h4-5678-90ab-cdef-1234567890ab
+        codigoReserva:
+          type: string
+          example: RES-K8W1H2-XYZ
+        vehiculoId:
+          type: string
+          format: uuid
+          example: c8a67ebc-06dd-4fc7-8902-86f9848e03af
+        clienteId:
+          type: string
+          format: uuid
+          example: a1b2c3d4-5678-90ab-cdef-1234567890ab
+        agenciaId:
+          type: string
+          format: uuid
+          example: b7b3e1c2-1234-5678-abcd-ef1234567890
+        fechaInicio:
+          type: string
+          format: date
+          description: Fecha guardada como YYYY-MM-DD
+          example: 2026-06-01
+        fechaFin:
+          type: string
+          format: date
+          description: Fecha guardada como YYYY-MM-DD
+          example: 2026-06-05
+        diasTotal:
+          type: integer
+          example: 4
+        totalAmount:
+          type: number
+          format: double
+          example: 102.00
+        status:
+          type: string
+          enum: [PENDIENTE, CONFIRMADA, ACTIVA, COMPLETADA, CANCELADA]
+          example: PENDIENTE
+
+    ReservaResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/ReservaBookingDto'
+
+    AlquilerRequestDto:
+      type: object
+      required:
+        - reservaId
+        - kmSalida
+      properties:
+        reservaId:
+          type: string
+          format: uuid
+          example: e1f2g3h4-5678-90ab-cdef-1234567890ab
+        kmSalida:
+          type: integer
+          description: Lectura del odómetro al entregar el vehículo
+          example: 15230
+        fechaInicio:
+          type: string
+          format: date-time
+          description: Opcional. Si se omite, se usa la hora actual del servidor.
+          example: 2026-06-01T10:00:00Z
+        observaciones:
+          type: string
+          description: Notas iniciales del estado del vehículo
+          example: Sin novedades al momento de salida
+
+    AlquilerBookingDto:
+      type: object
+      required:
+        - id
+        - reservaId
+        - kmSalida
+        - fechaInicio
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: f3f4f5f6-1234-5678-abcd-ef1234567890
+        reservaId:
+          type: string
+          format: uuid
+          example: e1f2g3h4-5678-90ab-cdef-1234567890ab
+        kmSalida:
+          type: integer
+          example: 15230
+        kmEntrada:
+          type: integer
+          nullable: true
+          example: null
+        fechaInicio:
+          type: string
+          format: date-time
+          example: 2026-06-01T10:00:00.000Z
+        fechaFin:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        cargoAdicional:
+          type: number
+          format: double
+          example: 0.00
+        status:
+          type: string
+          enum: [ACTIVO, FINALIZADO, CANCELADO]
+          example: ACTIVO
+        observaciones:
+          type: string
+          nullable: true
+          example: Sin novedades al momento de salida
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-05-21T04:02:37.000Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2026-05-21T04:02:37.000Z
+
+    AlquilerResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/AlquilerBookingDto'
+
+    DevolucionRequestDto:
+      type: object
+      required:
+        - alquilerId
+        - kmEntrada
+      properties:
+        alquilerId:
+          type: string
+          format: uuid
+          example: f3f4f5f6-1234-5678-abcd-ef1234567890
+        kmEntrada:
+          type: integer
+          description: Lectura del odómetro al recibir el vehículo de vuelta
+          example: 15890
+        estadoVehiculo:
+          type: string
+          description: Calificación general del estado (ej. BUENO, REGULAR, MALO)
+          example: BUENO
+        cargoExtra:
+          type: number
+          format: double
+          description: Multas o cobros por combustible/daños. Por defecto 0.
+          example: 25.00
+        observaciones:
+          type: string
+          description: Comentarios específicos sobre el estado físico de recepción
+          example: Rayón leve en puerta trasera derecha
+
+    DevolucionBookingDto:
+      type: object
+      required:
+        - id
+        - alquilerId
+        - fechaDevolucion
+        - kmEntrada
+        - cargoExtra
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: d1d2d3d4-1234-5678-abcd-ef1234567890
+        alquilerId:
+          type: string
+          format: uuid
+          example: f3f4f5f6-1234-5678-abcd-ef1234567890
+        fechaDevolucion:
+          type: string
+          format: date-time
+          example: 2026-06-05T10:00:00.000Z
+        kmEntrada:
+          type: integer
+          example: 15890
+        estadoVehiculo:
+          type: string
+          nullable: true
+          example: BUENO
+        cargoExtra:
+          type: number
+          format: double
+          example: 25.00
+        observaciones:
+          type: string
+          nullable: true
+          example: Rayón leve en puerta trasera derecha
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-05-21T04:02:37.000Z
+
+    DevolucionResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/DevolucionBookingDto'
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: NOT_FOUND
+            message:
+              type: string
+              example: Reserva e1f2g3h4-5678-90ab-cdef-1234567890ab no encontrada

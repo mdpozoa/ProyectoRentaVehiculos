@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import api from '../../services/api';
 import CrudModal from '../../components/CrudModal.vue';
+import { useCatalogos } from '@/composables/useCatalogos.js';
 
 const items = ref([]);
 const loading = ref(true);
@@ -14,18 +15,22 @@ const PK = 'ID_Modelo';
 const ENDPOINT = '/Modelos';
 const MODULE_NAME = 'Modelo';
 
-const fields = [
-  { key: 'ID_Modelo',       label: 'ID Modelo',      type: 'number', readOnly: true },
-  { key: 'ID_Marca',        label: 'ID Marca',        type: 'number', required: true },
-  { key: 'Nombre_Modelo',   label: 'Nombre Modelo',   type: 'text',   required: true },
-  { key: 'Tipo_Transmision',label: 'Transmisión',     type: 'select', required: true,
+const { marcas, loadingCatalogos, cargarCatalogos } = useCatalogos();
+
+const fields = computed(() => [
+  { key: 'ID_Modelo',        label: 'ID Modelo',  type: 'number', readOnly: true },
+  { key: 'ID_Marca',         label: 'Marca',      type: 'select', required: true, options: marcas.value },
+  { key: 'Nombre_Modelo',    label: 'Nombre',     type: 'text',   required: true },
+  { key: 'Tipo_Transmision', label: 'Transmisión',type: 'select', required: true,
     options: [
-      { value: 'Manual',     label: 'Manual' },
+      { value: 'Manual',     label: 'Manual'     },
       { value: 'Automático', label: 'Automático' },
-      { value: 'CVT',        label: 'CVT' },
+      { value: 'CVT',        label: 'CVT'        },
     ]
   },
-];
+]);
+
+const catalogosListos = computed(() => !loadingCatalogos.value && marcas.value.length > 0);
 
 const fetchItems = async () => {
   loading.value = true; error.value = null;
@@ -39,7 +44,7 @@ const fetchItems = async () => {
   } finally { loading.value = false; }
 };
 
-const openCreate = () => { modalMode.value = 'create'; selectedItem.value = null; showModal.value = true; };
+const openCreate = () => { if (!catalogosListos.value) return; modalMode.value = 'create'; selectedItem.value = null; showModal.value = true; };
 const openEdit   = (item) => { modalMode.value = 'edit'; selectedItem.value = { ...item }; showModal.value = true; };
 const openView   = (item) => { modalMode.value = 'view'; selectedItem.value = { ...item }; showModal.value = true; };
 
@@ -49,7 +54,7 @@ const deleteItem = async (item) => {
   catch { alert('Error al eliminar. Puede tener registros relacionados.'); }
 };
 
-onMounted(fetchItems);
+onMounted(() => { fetchItems(); cargarCatalogos(); });
 </script>
 
 <template>

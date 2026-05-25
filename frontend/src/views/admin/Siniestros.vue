@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import api from '../../services/api';
 import CrudModal from '../../components/CrudModal.vue';
+import { useCatalogos } from '@/composables/useCatalogos.js';
 
 const items = ref([]);
 const loading = ref(true);
@@ -14,24 +15,40 @@ const PK = 'ID_Siniestro';
 const ENDPOINT = '/Siniestros';
 const MODULE_NAME = 'Siniestro';
 
-const fields = [
-  { key: 'ID_Siniestro',        label: 'ID Siniestro',  type: 'number',  readOnly: true },
-  { key: 'ID_Reserva',          label: 'ID Reserva',    type: 'number',  required: true },
-  { key: 'ID_Vehiculo',         label: 'ID Vehículo',   type: 'number',  required: true },
-  { key: 'Fecha_Siniestro',     label: 'Fecha',         type: 'date',    required: true },
-  { key: 'Tipo_Siniestro',      label: 'Tipo',          type: 'select',  required: true,
+const { vehiculos, loadingCatalogos, cargarCatalogos } = useCatalogos();
+
+// Reservas se carga localmente (lista dinámica de operaciones)
+const reservasOpts = ref([]);
+const fetchReservas = async () => {
+  try {
+    const res = await api.get('/Reservas');
+    reservasOpts.value = (res.data ?? []).map(r => ({
+      value: r.ID_Reserva,
+      label: `Reserva #${r.ID_Reserva} — ${r.Estado_Reserva ?? ''}`,
+    }));
+  } catch { reservasOpts.value = []; }
+};
+
+const fields = computed(() => [
+  { key: 'ID_Siniestro',           label: 'ID Siniestro',       type: 'number',  readOnly: true },
+  { key: 'ID_Reserva',             label: 'Reserva',            type: 'select',  required: true, options: reservasOpts.value },
+  { key: 'ID_Vehiculo',            label: 'Vehículo',           type: 'select',  required: true, options: vehiculos.value },
+  { key: 'Fecha_Siniestro',        label: 'Fecha',              type: 'date',    required: true },
+  { key: 'Tipo_Siniestro',         label: 'Tipo',               type: 'select',  required: true,
     options: [
-      { value: 'Accidente',    label: 'Accidente' },
-      { value: 'Robo',         label: 'Robo' },
-      { value: 'Incendio',     label: 'Incendio' },
-      { value: 'Vandalismo',   label: 'Vandalismo' },
-      { value: 'Otro',         label: 'Otro' },
+      { value: 'Accidente',  label: 'Accidente'  },
+      { value: 'Robo',       label: 'Robo'       },
+      { value: 'Incendio',   label: 'Incendio'   },
+      { value: 'Vandalismo', label: 'Vandalismo' },
+      { value: 'Otro',       label: 'Otro'       },
     ]
   },
-  { key: 'Descripcion_Siniestro', label: 'Descripción', type: 'textarea', required: true, fullWidth: true },
-  { key: 'Monto_Estimado',       label: 'Monto Estimado ($)', type: 'decimal', required: true },
-  { key: 'Costo_Siniestro',      label: 'Costo Real ($)', type: 'decimal', required: false },
-];
+  { key: 'Descripcion_Siniestro', label: 'Descripción',         type: 'textarea', required: true, fullWidth: true },
+  { key: 'Monto_Estimado',        label: 'Monto Estimado ($)',  type: 'decimal',  required: true },
+  { key: 'Costo_Siniestro',       label: 'Costo Real ($)',      type: 'decimal',  required: false },
+]);
+
+const catalogosListos = computed(() => !loadingCatalogos.value && vehiculos.value.length > 0);
 
 const fetchItems = async () => {
   loading.value = true; error.value = null;
@@ -45,7 +62,7 @@ const fetchItems = async () => {
   } finally { loading.value = false; }
 };
 
-const openCreate = () => { modalMode.value = 'create'; selectedItem.value = null; showModal.value = true; };
+const openCreate = () => { if (!catalogosListos.value) return; modalMode.value = 'create'; selectedItem.value = null; showModal.value = true; };
 const openEdit   = (item) => { modalMode.value = 'edit'; selectedItem.value = { ...item }; showModal.value = true; };
 const openView   = (item) => { modalMode.value = 'view'; selectedItem.value = { ...item }; showModal.value = true; };
 
@@ -55,7 +72,7 @@ const deleteItem = async (item) => {
   catch { alert('Error al eliminar.'); }
 };
 
-onMounted(fetchItems);
+onMounted(() => { fetchItems(); cargarCatalogos(); fetchReservas(); });
 </script>
 
 <template>

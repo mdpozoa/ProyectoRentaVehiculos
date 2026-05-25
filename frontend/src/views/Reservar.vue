@@ -144,11 +144,11 @@ const confirmarReserva = async () => {
         <div class="vehiculo-info">
           <div class="vehiculo-icono">🚗</div>
           <div class="vehiculo-detalles">
-            <h2>{{ vehiculo.Placa_Vehiculo }}</h2>
-            <p>{{ vehiculo.Color_Vehiculo }} · {{ vehiculo.Anio_Vehiculo }}</p>
+            <h2>{{ vehiculo.placa || vehiculo.Placa_Vehiculo }}</h2>
+            <p>{{ vehiculo.color || vehiculo.Color_Vehiculo }} · {{ vehiculo.anio || vehiculo.Anio_Vehiculo }}</p>
             <div class="tags">
-              <span class="tag">{{ vehiculo.Combustible_Vehiculo }}</span>
-              <span class="tag">{{ vehiculo.Kilometraje_Vehiculo?.toLocaleString() }} km</span>
+              <span class="tag">{{ vehiculo.combustible || vehiculo.Combustible_Vehiculo }}</span>
+              <span class="tag">{{ (vehiculo.kilometraje || vehiculo.Kilometraje_Vehiculo)?.toLocaleString() }} km</span>
             </div>
           </div>
         </div>

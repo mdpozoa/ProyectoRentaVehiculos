@@ -1,0 +1,63 @@
+services:
+  catalogo-vehiculos:
+    build:
+      context: .
+      dockerfile: src/Servicios/CatalogoVehiculos/Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - ASPNETCORE_URLS=http://+:5001
+      - Supabase__Url=https://mzgggdprufdvpzybpctv.supabase.co
+      - Supabase__Key=sb_publishable_4R9XAvZLQjxzwgKqUT8jtg_8EG30Pgj
+      - Jwt__Key=secreto_super_seguro_123_secreto_super_seguro_123_c_sharp_key
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/swagger"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  gestion-reservas:
+    build:
+      context: .
+      dockerfile: src/Servicios/GestionReservas/Dockerfile
+    ports:
+      - "5002:5002"
+    environment:
+      - ASPNETCORE_URLS=http://+:5002
+      - Supabase__Url=https://mzgggdprufdvpzybpctv.supabase.co
+      - Supabase__Key=sb_publishable_4R9XAvZLQjxzwgKqUT8jtg_8EG30Pgj
+      - Jwt__Key=secreto_super_seguro_123_secreto_super_seguro_123_c_sharp_key
+      - Services__CatalogoVehiculos=http://catalogo-vehiculos:5001
+    depends_on:
+      - catalogo-vehiculos
+
+  facturacion:
+    build:
+      context: .
+      dockerfile: src/Servicios/Facturacion/Dockerfile
+    ports:
+      - "5003:5003"
+    environment:
+      - ASPNETCORE_URLS=http://+:5003
+      - Supabase__Url=https://mzgggdprufdvpzybpctv.supabase.co
+      - Supabase__Key=sb_publishable_4R9XAvZLQjxzwgKqUT8jtg_8EG30Pgj
+      - Jwt__Key=secreto_super_seguro_123_secreto_super_seguro_123_c_sharp_key
+    depends_on:
+      - gestion-reservas
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: src/ApiGateway/Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_URLS=http://+:5000
+      - Jwt__Key=secreto_super_seguro_123_secreto_super_seguro_123_c_sharp_key
+      - ReverseProxy__Clusters__catalogo-cluster__Destinations__primary__Address=http://catalogo-vehiculos:5001/
+      - ReverseProxy__Clusters__reservas-cluster__Destinations__primary__Address=http://gestion-reservas:5002/
+      - ReverseProxy__Clusters__facturacion-cluster__Destinations__primary__Address=http://facturacion:5003/
+    depends_on:
+      - catalogo-vehiculos
+      - gestion-reservas
+      - facturacion

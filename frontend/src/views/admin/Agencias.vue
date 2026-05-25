@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import api from '../../services/api';
 import CrudModal from '../../components/CrudModal.vue';
+import { useCatalogos } from '@/composables/useCatalogos.js';
 
 const items = ref([]);
 const loading = ref(true);
@@ -14,13 +15,17 @@ const PK = 'ID_Agencia';
 const ENDPOINT = '/Agencias';
 const MODULE_NAME = 'Agencia';
 
-const fields = [
-  { key: 'ID_Agencia',       label: 'ID Agencia',   type: 'number', readOnly: true },
-  { key: 'ID_Ciudad',        label: 'ID Ciudad',    type: 'number', required: true },
-  { key: 'Nombre_Agencia',   label: 'Nombre',       type: 'text',   required: true },
-  { key: 'Direccion_Agencia',label: 'Dirección',    type: 'text',   required: true, fullWidth: true },
-  { key: 'Telefono_Agencia', label: 'Teléfono',     type: 'text',   required: true },
-];
+const { ciudades, loadingCatalogos, cargarCatalogos } = useCatalogos();
+
+const fields = computed(() => [
+  { key: 'ID_Agencia',        label: 'ID Agencia', type: 'number', readOnly: true },
+  { key: 'ID_Ciudad',         label: 'Ciudad',     type: 'select', required: true, options: ciudades.value },
+  { key: 'Nombre_Agencia',    label: 'Nombre',     type: 'text',   required: true },
+  { key: 'Direccion_Agencia', label: 'Dirección',  type: 'text',   required: true, fullWidth: true },
+  { key: 'Telefono_Agencia',  label: 'Teléfono',   type: 'text',   required: true },
+]);
+
+const catalogosListos = computed(() => !loadingCatalogos.value && ciudades.value.length > 0);
 
 const fetchItems = async () => {
   loading.value = true; error.value = null;
@@ -34,7 +39,7 @@ const fetchItems = async () => {
   } finally { loading.value = false; }
 };
 
-const openCreate = () => { modalMode.value = 'create'; selectedItem.value = null; showModal.value = true; };
+const openCreate = () => { if (!catalogosListos.value) return; modalMode.value = 'create'; selectedItem.value = null; showModal.value = true; };
 const openEdit   = (item) => { modalMode.value = 'edit'; selectedItem.value = { ...item }; showModal.value = true; };
 const openView   = (item) => { modalMode.value = 'view'; selectedItem.value = { ...item }; showModal.value = true; };
 
@@ -44,7 +49,7 @@ const deleteItem = async (item) => {
   catch { alert('Error al eliminar. Puede tener registros relacionados.'); }
 };
 
-onMounted(fetchItems);
+onMounted(() => { fetchItems(); cargarCatalogos(); });
 </script>
 
 <template>

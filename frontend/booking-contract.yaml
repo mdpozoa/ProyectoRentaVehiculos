@@ -1,0 +1,1133 @@
+openapi: "3.0.3"
+
+info:
+  title: Zenith Drive — Contrato Completo de APIs (Frontend → Microservicios)
+  description: |
+    Contrato OpenAPI 3.0 de **todos** los servicios que consume el frontend Vue.js de Zenith Drive.
+
+    ## Arquitectura de comunicación
+
+    ```
+    Vue.js Frontend (localhost:4200)
+         │
+         ├── apiAuth    → auth-service        (localhost:3001)  Node.js + Prisma + Supabase
+         ├── apiGateway → API Gateway NGINX   (Port 80/443)
+         │    ├── /v1/vehiculos   → inventario-service  (localhost:3002)
+         │    ├── /v1/agencias    → org-service         (localhost:3003)
+         │    ├── /v1/reservas    → operaciones-service (localhost:3004)
+         │    ├── /v1/alquileres  → operaciones-service (localhost:3004)
+         │    ├── /v1/devoluciones→ operaciones-service (localhost:3004)
+         │    ├── /v1/facturas    → financiero-service  (localhost:3005)
+         │    └── /v1/pagos       → financiero-service  (localhost:3005)
+         ├── apiBooking → operaciones-service (via API Gateway: /api/v1/reservas, /api/v1/alquileres, /api/v1/devoluciones)
+         └── apiMonolith→ Monolito ASP.NET    (localhost:5192/api)  legado
+              ├── /Modelos, /Marcas, /Categorias, /Ciudades
+              ├── /Vehiculos, /Agencias
+              ├── /Contratos, /Reservas, /Facturas, /Pagos
+              └── /Personas, /Usuarios, /Auditorias, /Siniestros, /Kardex, /Tarifas
+    ```
+
+    ## Autenticación
+    Todos los endpoints (excepto `/health`, `/v1/auth/login`, `/v1/auth/register`)
+    requieren: `Authorization: Bearer <JWT>`
+
+    El JWT se obtiene via `POST /api/v1/auth/login` en el auth-service.
+
+  version: "2.0.0"
+  contact:
+    name: Zenith Drive — Equipo Desarrollo
+    url: https://zenith-drive.app
+
+servers:
+  # ── Microservicios individuales (desarrollo directo) ──────────────────────
+  - url: http://localhost:3001/api
+    description: auth-service (Node.js :3001)
+  - url: http://localhost:3004/api/v1/mateodavid
+    description: operaciones-service — Booking directo (Node.js :3004)
+  - url: http://localhost/api
+    description: API Gateway NGINX — entrada principal
+  - url: http://localhost:5192/api
+    description: Monolito ASP.NET Core (legado :5192)
+  # ── Producción ────────────────────────────────────────────────────────────
+  - url: https://nginx-frontend.ambitiousforest-4fd0ab3a.eastus.azurecontainerapps.io/api
+    description: Producción — API Gateway en Azure
+
+security:
+  - BearerAuth: []
+
+# ═════════════════════════════════════════════════════════════════════════════
+# COMPONENTS
+# ═════════════════════════════════════════════════════════════════════════════
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT obtenido desde auth-service (POST /api/v1/auth/login)
+
+  schemas:
+
+    # ── Genéricos ─────────────────────────────────────────────────────────────
+    ApiSuccess:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:    { type: object }
+        message: { type: string, nullable: true }
+
+    ApiError:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        error:
+          type: object
+          properties:
+            code:    { type: string }
+            message: { type: string }
+            details: { type: object, nullable: true }
+
+    # ── AUTH ──────────────────────────────────────────────────────────────────
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:    { type: string, format: email,    example: "admin@zenith-drive.app" }
+        password: { type: string, format: password, example: "MyPass2026!" }
+
+    RegisterInput:
+      type: object
+      required: [nombre, email, password]
+      properties:
+        nombre:   { type: string,        example: "Mateo David" }
+        email:    { type: string, format: email, example: "mateo@zenith-drive.app" }
+        password: { type: string,        example: "MyPass2026!" }
+        rol:      { type: string, enum: [cliente, admin], default: cliente }
+
+    AuthResponse:
+      type: object
+      properties:
+        token: { type: string, description: JWT de acceso }
+        user:
+          type: object
+          properties:
+            id:     { type: string, format: uuid }
+            nombre: { type: string }
+            email:  { type: string }
+            rol:    { type: string, enum: [cliente, admin] }
+
+    # ── VEHÍCULOS ─────────────────────────────────────────────────────────────
+    Vehiculo:
+      type: object
+      properties:
+        ID_Vehiculo:     { type: integer }
+        Placa_Vehiculo:  { type: string, example: "ABC-1234" }
+        Anio_Vehiculo:   { type: integer, example: 2024 }
+        Color_Vehiculo:  { type: string, example: "Negro" }
+        Estado_Vehiculo: { type: string, enum: [DISPONIBLE, EN_USO, MANTENIMIENTO] }
+        ID_Modelo:       { type: integer }
+        ID_Categoria:    { type: integer }
+        Tarifa_Diaria:   { type: number, format: float, example: 85.00 }
+
+    VehiculoInput:
+      type: object
+      required: [Placa_Vehiculo, ID_Modelo, ID_Categoria]
+      properties:
+        Placa_Vehiculo:  { type: string }
+        Anio_Vehiculo:   { type: integer }
+        Color_Vehiculo:  { type: string }
+        ID_Modelo:       { type: integer }
+        ID_Categoria:    { type: integer }
+        Tarifa_Diaria:   { type: number }
+
+    # ── BOOKING / OPERACIONES ─────────────────────────────────────────────────
+    EstadoReserva:
+      type: string
+      enum: [PENDIENTE, CONFIRMADA, ACTIVA, COMPLETADA, CANCELADA]
+
+    EstadoVehiculo:
+      type: string
+      enum: [EXCELENTE, BUENO, REGULAR, DAÑADO]
+
+    ReservaBookingInput:
+      type: object
+      required: [vehiculoId, clienteId, fechaInicio, fechaFin]
+      properties:
+        vehiculoId:  { type: string, format: uuid, example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890" }
+        clienteId:   { type: string, format: uuid, example: "f0e9d8c7-b6a5-4321-fedc-ba9876543210" }
+        agenciaId:   { type: string, format: uuid, nullable: true }
+        fechaInicio: { type: string, format: date, example: "2026-06-01" }
+        fechaFin:    { type: string, format: date, example: "2026-06-05" }
+
+    ReservaBookingResponse:
+      type: object
+      properties:
+        id:          { type: string, format: uuid }
+        vehiculoId:  { type: string, format: uuid }
+        clienteId:   { type: string, format: uuid }
+        agenciaId:   { type: string, format: uuid, nullable: true }
+        fechaInicio: { type: string, format: date }
+        fechaFin:    { type: string, format: date }
+        status:      { $ref: "#/components/schemas/EstadoReserva" }
+        createdAt:   { type: string, format: date-time }
+        updatedAt:   { type: string, format: date-time }
+
+    CambiarEstadoInput:
+      type: object
+      required: [status]
+      properties:
+        status: { $ref: "#/components/schemas/EstadoReserva" }
+
+    AlquilerInput:
+      type: object
+      required: [reservaId]
+      properties:
+        reservaId:     { type: string, format: uuid }
+        kmSalida:      { type: integer, minimum: 0, example: 15000 }
+        fechaInicio:   { type: string, format: date-time, nullable: true }
+        observaciones: { type: string, nullable: true }
+
+    AlquilerResponse:
+      type: object
+      properties:
+        id:          { type: string, format: uuid }
+        reservaId:   { type: string, format: uuid }
+        kmSalida:    { type: integer }
+        status:      { type: string, enum: [ACTIVO, FINALIZADO] }
+        fechaInicio: { type: string, format: date-time }
+        createdAt:   { type: string, format: date-time }
+
+    DevolucionInput:
+      type: object
+      required: [alquilerId, kmEntrada, estadoVehiculo]
+      properties:
+        alquilerId:     { type: string, format: uuid }
+        kmEntrada:      { type: integer, minimum: 0, example: 15340 }
+        estadoVehiculo: { $ref: "#/components/schemas/EstadoVehiculo" }
+        cargoExtra:     { type: number, format: float, minimum: 0, nullable: true, example: 0.00 }
+        observaciones:  { type: string, nullable: true }
+
+    DevolucionResponse:
+      type: object
+      properties:
+        id:             { type: string, format: uuid }
+        alquilerId:     { type: string, format: uuid }
+        kmEntrada:      { type: integer }
+        estadoVehiculo: { $ref: "#/components/schemas/EstadoVehiculo" }
+        cargoExtra:     { type: number }
+        reservaStatus:  { type: string, example: "COMPLETADA" }
+        vehiculoStatus: { type: string, example: "DISPONIBLE" }
+        createdAt:      { type: string, format: date-time }
+
+    # ── FACTURAS / PAGOS ──────────────────────────────────────────────────────
+    FacturaInput:
+      type: object
+      required: [ID_Reserva, Total_Factura]
+      properties:
+        ID_Reserva:      { type: integer }
+        Total_Factura:   { type: number, format: float, example: 425.00 }
+        Fecha_Factura:   { type: string, format: date }
+        Estado_Factura:  { type: string, enum: [PENDIENTE, PAGADA, ANULADA], default: PENDIENTE }
+
+    PagoInput:
+      type: object
+      required: [ID_Factura, Monto_Pago, Metodo_Pago]
+      properties:
+        ID_Factura:    { type: integer }
+        Monto_Pago:    { type: number, format: float, example: 425.00 }
+        Metodo_Pago:   { type: string, enum: [EFECTIVO, TARJETA, TRANSFERENCIA] }
+        Fecha_Pago:    { type: string, format: date }
+        Referencia:    { type: string, nullable: true }
+
+    # ── CATÁLOGOS (Monolito) ──────────────────────────────────────────────────
+    Modelo:
+      type: object
+      properties:
+        ID_Modelo:     { type: integer }
+        Nombre_Modelo: { type: string, example: "Corolla" }
+        ID_Marca:      { type: integer }
+
+    Categoria:
+      type: object
+      properties:
+        ID_Categoria:     { type: integer }
+        Nombre_Categoria: { type: string, example: "SUV" }
+
+    Marca:
+      type: object
+      properties:
+        ID_Marca:     { type: integer }
+        Nombre_Marca: { type: string, example: "Toyota" }
+
+    Ciudad:
+      type: object
+      properties:
+        ID_Ciudad:     { type: integer }
+        Nombre_Ciudad: { type: string, example: "Quito" }
+
+    Agencia:
+      type: object
+      properties:
+        ID_Agencia:     { type: integer }
+        Nombre_Agencia: { type: string, example: "Zenith Drive Centro" }
+        ID_Ciudad:      { type: integer }
+
+    # ── Health ────────────────────────────────────────────────────────────────
+    HealthResponse:
+      type: object
+      properties:
+        status:    { type: string, example: "ok" }
+        service:   { type: string }
+        timestamp: { type: string, format: date-time }
+        uptime:    { type: number }
+
+  responses:
+    Unauthorized:
+      description: Token JWT ausente o inválido.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    NotFound:
+      description: Recurso no encontrado.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    Conflict:
+      description: Transición de estado inválida o conflicto de datos.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    UnprocessableEntity:
+      description: Datos de entrada inválidos.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+
+# ═════════════════════════════════════════════════════════════════════════════
+# PATHS — agrupados por servicio
+# ═════════════════════════════════════════════════════════════════════════════
+paths:
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # AUTH-SERVICE  (apiAuth → localhost:3001/api)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  /v1/auth/login:
+    post:
+      operationId: authLogin
+      summary: Iniciar sesión
+      description: Autentica al usuario y retorna un JWT. No requiere token previo.
+      tags: [Auth Service]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginInput" }
+            example:
+              email: "admin@zenith-drive.app"
+              password: "MyPass2026!"
+      responses:
+        "200":
+          description: Login exitoso. Retorna token y datos del usuario.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+              example:
+                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                user:
+                  id: "f0e9d8c7-b6a5-4321-fedc-ba9876543210"
+                  nombre: "Mateo David"
+                  email: "admin@zenith-drive.app"
+                  rol: "admin"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/auth/register:
+    post:
+      operationId: authRegister
+      summary: Registrar nuevo usuario
+      description: Crea una cuenta de cliente. No requiere token.
+      tags: [Auth Service]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterInput" }
+      responses:
+        "201":
+          description: Usuario creado exitosamente.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /v1/auth/me:
+    get:
+      operationId: authMe
+      summary: Obtener perfil del usuario autenticado
+      tags: [Auth Service]
+      responses:
+        "200":
+          description: Datos del usuario autenticado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      operationId: authUpdateProfile
+      summary: Actualizar datos del perfil
+      tags: [Auth Service]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre:   { type: string }
+                telefono: { type: string }
+      responses:
+        "200":
+          description: Perfil actualizado.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # BOOKING (operaciones-service via API Gateway NGINX — /api)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  /health:
+    get:
+      operationId: bookingHealth
+      summary: Health Check — operaciones-service
+      description: Verifica que el operaciones-service esté activo. Sin autenticación.
+      tags: [Booking — operaciones-service]
+      security: []
+      responses:
+        "200":
+          description: Servicio en línea.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthResponse" }
+              example:
+                status: "ok"
+                service: "operaciones-service"
+                timestamp: "2026-05-23T15:00:00.000Z"
+                uptime: 3600
+
+  /v1/reservas/booking:
+    servers:
+      - url: http://localhost/api
+        description: Local API Gateway
+      - url: https://nginx-frontend.ambitiousforest-4fd0ab3a.eastus.azurecontainerapps.io/api
+        description: Producción API Gateway Azure
+    post:
+      operationId: bookingCrearReserva
+      summary: Crear reserva (Booking)
+      description: |
+        Crea una reserva en estado **PENDIENTE** a través del API Gateway.
+        **Gateway:** `https://nginx-frontend.ambitiousforest-4fd0ab3a.eastus.azurecontainerapps.io/api`
+        **Endpoint:** `/v1/reservas/booking`
+      tags: [Booking — operaciones-service]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReservaBookingInput" }
+            example:
+              vehiculoId:  "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+              clienteId:   "f0e9d8c7-b6a5-4321-fedc-ba9876543210"
+              agenciaId:   "11223344-5566-7788-99aa-bbccddeeff00"
+              fechaInicio: "2026-06-01"
+              fechaFin:    "2026-06-05"
+      responses:
+        "201":
+          description: Reserva creada en estado PENDIENTE.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccess"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/ReservaBookingResponse" }
+              example:
+                success: true
+                data:
+                  id: "cc112233-4455-6677-8899-aabbccddeeff"
+                  status: "PENDIENTE"
+                  fechaInicio: "2026-06-01"
+                  fechaFin: "2026-06-05"
+                  createdAt: "2026-05-23T15:00:00.000Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /v1/reservas/booking/{id}:
+    servers:
+      - url: http://localhost/api
+        description: Local API Gateway
+      - url: https://nginx-frontend.ambitiousforest-4fd0ab3a.eastus.azurecontainerapps.io/api
+        description: Producción API Gateway Azure
+    get:
+      operationId: bookingGetReserva
+      summary: Obtener reserva por ID (Booking)
+      tags: [Booking — operaciones-service]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          example: "cc112233-4455-6677-8899-aabbccddeeff"
+      responses:
+        "200":
+          description: Detalle de la reserva.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccess"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/ReservaBookingResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      operationId: bookingCambiarEstado
+      summary: Cambiar estado de reserva (Booking)
+      description: |
+        Transiciones válidas:
+        ```
+        PENDIENTE → CONFIRMADA | CANCELADA
+        CONFIRMADA → ACTIVA | CANCELADA
+        ACTIVA → COMPLETADA | CANCELADA
+        ```
+      tags: [Booking — operaciones-service]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CambiarEstadoInput" }
+            examples:
+              confirmar:
+                value: { status: "CONFIRMADA" }
+              cancelar:
+                value: { status: "CANCELADA" }
+      responses:
+        "200":
+          description: Estado actualizado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccess"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/ReservaBookingResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /v1/alquileres/booking:
+    servers:
+      - url: http://localhost/api
+        description: Local API Gateway
+      - url: https://nginx-frontend.ambitiousforest-4fd0ab3a.eastus.azurecontainerapps.io/api
+        description: Producción API Gateway Azure
+    post:
+      operationId: bookingIniciarAlquiler
+      summary: Iniciar alquiler — entrega del vehículo (Booking)
+      description: |
+        Requiere que la reserva esté en estado **CONFIRMADA**.
+        - Reserva → `ACTIVA`
+        - Vehículo → `EN_USO`
+      tags: [Booking — operaciones-service]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AlquilerInput" }
+            example:
+              reservaId:     "cc112233-4455-6677-8899-aabbccddeeff"
+              kmSalida:      15000
+              observaciones: "Vehículo entregado con tanque lleno."
+      responses:
+        "201":
+          description: Alquiler iniciado. Vehículo en EN_USO.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccess"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/AlquilerResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: La reserva no está CONFIRMADA.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example:
+                success: false
+                error:
+                  code: "RESERVA_NOT_CONFIRMED"
+                  message: "La reserva debe estar en estado CONFIRMADA."
+
+  /v1/devoluciones/booking:
+    servers:
+      - url: http://localhost/api
+        description: Local API Gateway
+      - url: https://nginx-frontend.ambitiousforest-4fd0ab3a.eastus.azurecontainerapps.io/api
+        description: Producción API Gateway Azure
+    post:
+      operationId: bookingRegistrarDevolucion
+      summary: Registrar devolución del vehículo (Booking)
+      description: |
+        Cierra el ciclo completo:
+        - Alquiler → `FINALIZADO`
+        - Reserva → `COMPLETADA`
+        - Vehículo → `DISPONIBLE`
+      tags: [Booking — operaciones-service]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DevolucionInput" }
+            examples:
+              sin_novedad:
+                summary: Devolución sin daños
+                value:
+                  alquilerId:     "dd223344-5566-7788-9900-aabbccddeeff"
+                  kmEntrada:      15340
+                  estadoVehiculo: "BUENO"
+                  cargoExtra:     0
+                  observaciones:  "Sin novedades."
+              con_cargo:
+                summary: Devolución con daño
+                value:
+                  alquilerId:     "dd223344-5566-7788-9900-aabbccddeeff"
+                  kmEntrada:      15500
+                  estadoVehiculo: "DAÑADO"
+                  cargoExtra:     150.00
+                  observaciones:  "Rayón en puerta delantera."
+      responses:
+        "201":
+          description: Devolución registrada. Ciclo completado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccess"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/DevolucionResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # VIA API GATEWAY NGINX (apiGateway → /api)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  # ── Vehículos (inventario-service via Gateway) ────────────────────────────
+  /v1/vehiculos:
+    get:
+      operationId: vehiculosGetAll
+      summary: Listar vehículos (catálogo)
+      description: Retorna todos los vehículos. Usado en la vista pública y panel admin.
+      tags: [Vehículos — inventario-service]
+      parameters:
+        - name: estado
+          in: query
+          schema: { type: string, enum: [DISPONIBLE, EN_USO, MANTENIMIENTO] }
+        - name: categoria
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Lista de vehículos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Vehiculo" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      operationId: vehiculosCreate
+      summary: Crear vehículo (admin)
+      tags: [Vehículos — inventario-service]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VehiculoInput" }
+      responses:
+        "201":
+          description: Vehículo creado.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/vehiculos/{id}:
+    get:
+      operationId: vehiculosGetById
+      summary: Obtener vehículo por ID
+      tags: [Vehículos — inventario-service]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Detalle del vehículo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Vehiculo" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      operationId: vehiculosUpdate
+      summary: Actualizar vehículo (admin)
+      tags: [Vehículos — inventario-service]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VehiculoInput" }
+      responses:
+        "200":
+          description: Vehículo actualizado.
+
+    delete:
+      operationId: vehiculosDelete
+      summary: Eliminar vehículo (admin)
+      tags: [Vehículos — inventario-service]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Eliminado correctamente.
+
+  # ── Reservas via Gateway (GestionReservas .NET) ───────────────────────────
+  /v1/reservas:
+    get:
+      operationId: reservasGetAll
+      summary: Listar reservas
+      description: Admin ve todas; cliente ve solo las suyas (filtrado por backend).
+      tags: [Reservas — GestionReservas service]
+      parameters:
+        - name: clienteId
+          in: query
+          schema: { type: integer }
+        - name: estado
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Lista de reservas.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      operationId: reservasCreate
+      summary: Crear reserva (monolito)
+      tags: [Reservas — GestionReservas service]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ID_Vehiculo, ID_Persona, Fecha_Inicio, Fecha_Fin]
+              properties:
+                ID_Vehiculo: { type: integer }
+                ID_Persona:  { type: integer }
+                ID_Agencia:  { type: integer, nullable: true }
+                Fecha_Inicio:{ type: string, format: date }
+                Fecha_Fin:   { type: string, format: date }
+      responses:
+        "201":
+          description: Reserva creada.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/reservas/{id}:
+    get:
+      operationId: reservasGetById
+      summary: Obtener reserva por ID
+      tags: [Reservas — GestionReservas service]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Detalle de la reserva.
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      operationId: reservasUpdate
+      summary: Actualizar / cancelar reserva
+      tags: [Reservas — GestionReservas service]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: Reserva actualizada.
+
+  # ── Alquileres via Gateway ─────────────────────────────────────────────────
+  /v1/alquileres:
+    get:
+      operationId: alquileresGetAll
+      summary: Listar alquileres activos
+      tags: [Alquileres — GestionReservas service]
+      responses:
+        "200":
+          description: Lista de alquileres.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/devoluciones/{alquilerId}:
+    post:
+      operationId: devolucionesRegistrar
+      summary: Registrar devolución (via Gateway)
+      tags: [Alquileres — GestionReservas service]
+      parameters:
+        - name: alquilerId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "201":
+          description: Devolución registrada.
+
+  # ── Facturas (financiero-service via Gateway) ─────────────────────────────
+  /v1/facturas:
+    get:
+      operationId: facturasGetAll
+      summary: Listar facturas
+      tags: [Facturas — financiero-service]
+      parameters:
+        - name: clienteId
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Lista de facturas.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      operationId: facturasCreate
+      summary: Crear factura
+      tags: [Facturas — financiero-service]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FacturaInput" }
+      responses:
+        "201":
+          description: Factura creada.
+
+  /v1/facturas/{id}:
+    get:
+      operationId: facturasGetById
+      summary: Obtener factura por ID
+      tags: [Facturas — financiero-service]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Detalle de factura.
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Pagos ─────────────────────────────────────────────────────────────────
+  /v1/pagos:
+    get:
+      operationId: pagosGetAll
+      summary: Listar pagos
+      tags: [Pagos — financiero-service]
+      responses:
+        "200":
+          description: Lista de pagos.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      operationId: pagosRegistrar
+      summary: Registrar pago
+      tags: [Pagos — financiero-service]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PagoInput" }
+      responses:
+        "201":
+          description: Pago registrado.
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # MONOLITO ASP.NET CORE (apiMonolith → localhost:5192/api)
+  # Catálogos base + módulos admin
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /Modelos:
+    get:
+      operationId: monolithModelos
+      summary: Listar modelos de vehículos (catálogo)
+      tags: [Catálogos — Monolito ASP.NET]
+      responses:
+        "200":
+          description: Lista de modelos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Modelo" }
+
+  /Categorias:
+    get:
+      operationId: monolithCategorias
+      summary: Listar categorías de vehículos
+      tags: [Catálogos — Monolito ASP.NET]
+      responses:
+        "200":
+          description: Lista de categorías.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Categoria" }
+
+  /Marcas:
+    get:
+      operationId: monolithMarcas
+      summary: Listar marcas de vehículos
+      tags: [Catálogos — Monolito ASP.NET]
+      responses:
+        "200":
+          description: Lista de marcas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Marca" }
+
+  /Ciudades:
+    get:
+      operationId: monolithCiudades
+      summary: Listar ciudades
+      tags: [Catálogos — Monolito ASP.NET]
+      responses:
+        "200":
+          description: Lista de ciudades.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Ciudad" }
+
+  /Agencias:
+    get:
+      operationId: monolithAgencias
+      summary: Listar agencias
+      tags: [Catálogos — Monolito ASP.NET]
+      responses:
+        "200":
+          description: Lista de agencias.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Agencia" }
+
+  /Vehiculos:
+    get:
+      operationId: monolithVehiculos
+      summary: Listar vehículos (monolito — usado por catálogos admin)
+      tags: [Catálogos — Monolito ASP.NET]
+      responses:
+        "200":
+          description: Lista de vehículos.
+
+  /Contratos:
+    get:
+      operationId: monolithContratosGet
+      summary: Listar contratos de arrendamiento
+      tags: [Operaciones Admin — Monolito ASP.NET]
+      responses:
+        "200":
+          description: Lista de contratos.
+    post:
+      operationId: monolithContratosCreate
+      summary: Crear contrato
+      tags: [Operaciones Admin — Monolito ASP.NET]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ID_Reserva:       { type: integer }
+                Ter_Con_Contrato: { type: string }
+                Firma_Contrato:   { type: string, nullable: true }
+      responses:
+        "201":
+          description: Contrato creado.
+
+  /Contratos/{id}:
+    put:
+      operationId: monolithContratosUpdate
+      summary: Actualizar contrato
+      tags: [Operaciones Admin — Monolito ASP.NET]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: Contrato actualizado.
+    delete:
+      operationId: monolithContratosDelete
+      summary: Eliminar contrato
+      tags: [Operaciones Admin — Monolito ASP.NET]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Eliminado.
+
+  /Personas:
+    get:
+      operationId: monolithPersonas
+      summary: Listar personas (clientes registrados)
+      tags: [Seguridad Admin — Monolito ASP.NET]
+      responses:
+        "200":
+          description: Lista de personas.
+
+  /Usuarios:
+    get:
+      operationId: monolithUsuarios
+      summary: Listar usuarios del sistema
+      tags: [Seguridad Admin — Monolito ASP.NET]
+      responses:
+        "200":
+          description: Lista de usuarios.
+
+  /Auditorias:
+    get:
+      operationId: monolithAuditorias
+      summary: Log de auditoría del sistema
+      tags: [Seguridad Admin — Monolito ASP.NET]
+      responses:
+        "200":
+          description: Registros de auditoría.
+
+  /Tarifas:
+    get:
+      operationId: monolithTarifas
+      summary: Listar tarifas por categoría
+      tags: [Catálogos — Monolito ASP.NET]
+      responses:
+        "200":
+          description: Lista de tarifas.
+
+  /Siniestros:
+    get:
+      operationId: monolithSiniestros
+      summary: Listar siniestros reportados
+      tags: [Operaciones Admin — Monolito ASP.NET]
+      responses:
+        "200":
+          description: Lista de siniestros.
+
+  /Kardex:
+    get:
+      operationId: monolithKardex
+      summary: Kardex de movimientos de vehículos
+      tags: [Operaciones Admin — Monolito ASP.NET]
+      responses:
+        "200":
+          description: Registros de kardex.
+
+# ── Tags globales ──────────────────────────────────────────────────────────────
+tags:
+  - name: Auth Service
+    description: "Autenticación y gestión de perfil. Puerto: 3001"
+  - name: "Booking — operaciones-service"
+    description: "Flujo completo de reserva via API Gateway. Base mínima: /api/v1/reservas, /api/v1/alquileres, /api/v1/devoluciones"
+  - name: "Vehículos — inventario-service"
+    description: "Catálogo de vehículos via API Gateway. Puerto: 5050 → 3002"
+  - name: "Reservas — GestionReservas service"
+    description: "Gestión de reservas y alquileres via API Gateway. Puerto: 5050 → 5002"
+  - name: "Facturas — financiero-service"
+    description: "Facturación via API Gateway. Puerto: 5050 → 3005"
+  - name: "Pagos — financiero-service"
+    description: "Pagos via API Gateway. Puerto: 5050 → 3005"
+  - name: "Catálogos — Monolito ASP.NET"
+    description: "Catálogos base (modelos, marcas, categorías, ciudades, agencias). Puerto: 5192"
+  - name: "Operaciones Admin — Monolito ASP.NET"
+    description: "Módulos de administración (contratos, siniestros, kardex). Puerto: 5192"
+  - name: "Seguridad Admin — Monolito ASP.NET"
+    description: "Gestión de personas, usuarios y auditorías. Puerto: 5192"

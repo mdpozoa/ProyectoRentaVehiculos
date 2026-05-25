@@ -47,8 +47,9 @@ const menuGroups = ref([
     icon: '🚗',
     open: false,
     items: [
-      { name: 'Agencias', path: '/admin/agencias', icon: '🏢' },
-      { name: 'Vehículos', path: '/admin/vehiculos', icon: '🚙' },
+      { name: 'Agencias',        path: '/admin/agencias',       icon: '🏢' },
+      { name: 'Vehículos',       path: '/admin/vehiculos',      icon: '🚙' },
+      { name: 'Booking (API)',   path: '/admin/booking-admin',  icon: '📦' },
     ]
   },
   {

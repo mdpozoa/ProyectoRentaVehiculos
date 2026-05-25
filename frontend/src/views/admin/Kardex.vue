@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import api from '../../services/api';
 import CrudModal from '../../components/CrudModal.vue';
+import { useCatalogos } from '@/composables/useCatalogos.js';
 
 const items = ref([]);
 const loading = ref(true);
@@ -14,20 +15,24 @@ const PK = 'ID_Kardex';
 const ENDPOINT = '/Kardex';
 const MODULE_NAME = 'Kardex';
 
-const fields = [
-  { key: 'ID_Kardex',               label: 'ID Kardex',     type: 'number',  readOnly: true },
-  { key: 'ID_Vehiculo',             label: 'ID Vehículo',   type: 'number',  required: true },
-  { key: 'Fecha_Movimiento_Kardex', label: 'Fecha',         type: 'date',    required: true },
-  { key: 'Tipo_Movimiento_Kardex',  label: 'Tipo Movimiento', type: 'select', required: true,
+const { vehiculos, loadingCatalogos, cargarCatalogos } = useCatalogos();
+
+const fields = computed(() => [
+  { key: 'ID_Kardex',               label: 'ID Kardex',       type: 'number',  readOnly: true },
+  { key: 'ID_Vehiculo',             label: 'Vehículo',        type: 'select',  required: true, options: vehiculos.value },
+  { key: 'Fecha_Movimiento_Kardex', label: 'Fecha',           type: 'date',    required: true },
+  { key: 'Tipo_Movimiento_Kardex',  label: 'Tipo Movimiento', type: 'select',  required: true,
     options: [
-      { value: 'Entrada',      label: 'Entrada' },
-      { value: 'Salida',       label: 'Salida' },
-      { value: 'Mantenimiento',label: 'Mantenimiento' },
+      { value: 'Entrada',       label: 'Entrada'       },
+      { value: 'Salida',        label: 'Salida'        },
+      { value: 'Mantenimiento', label: 'Mantenimiento' },
     ]
   },
-  { key: 'Kilometraje_Kardex',      label: 'Kilometraje',   type: 'decimal', required: true },
-  { key: 'Observaciones_Kardex',    label: 'Observaciones', type: 'textarea', required: false, fullWidth: true },
-];
+  { key: 'Kilometraje_Kardex',   label: 'Kilometraje',   type: 'decimal',  required: true },
+  { key: 'Observaciones_Kardex', label: 'Observaciones', type: 'textarea', required: false, fullWidth: true },
+]);
+
+const catalogosListos = computed(() => !loadingCatalogos.value && vehiculos.value.length > 0);
 
 const fetchItems = async () => {
   loading.value = true; error.value = null;
@@ -41,7 +46,7 @@ const fetchItems = async () => {
   } finally { loading.value = false; }
 };
 
-const openCreate = () => { modalMode.value = 'create'; selectedItem.value = null; showModal.value = true; };
+const openCreate = () => { if (!catalogosListos.value) return; modalMode.value = 'create'; selectedItem.value = null; showModal.value = true; };
 const openEdit   = (item) => { modalMode.value = 'edit'; selectedItem.value = { ...item }; showModal.value = true; };
 const openView   = (item) => { modalMode.value = 'view'; selectedItem.value = { ...item }; showModal.value = true; };
 
@@ -51,7 +56,7 @@ const deleteItem = async (item) => {
   catch { alert('Error al eliminar. Puede tener registros relacionados.'); }
 };
 
-onMounted(fetchItems);
+onMounted(() => { fetchItems(); cargarCatalogos(); });
 </script>
 
 <template>

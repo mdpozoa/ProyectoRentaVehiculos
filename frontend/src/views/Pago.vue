@@ -240,8 +240,8 @@ const procesarPago = async () => {
           <div class="resumen-vehiculo">
             <div class="vehiculo-icono">🚗</div>
             <div>
-              <p class="vehiculo-placa">{{ reserva.vehiculo?.Placa_Vehiculo }}</p>
-              <p class="vehiculo-det">{{ reserva.vehiculo?.Color_Vehiculo }} · {{ reserva.vehiculo?.Anio_Vehiculo }}</p>
+              <p class="vehiculo-placa">{{ reserva.vehiculo?.placa || reserva.vehiculo?.Placa_Vehiculo }}</p>
+              <p class="vehiculo-det">{{ reserva.vehiculo?.color || reserva.vehiculo?.Color_Vehiculo }} · {{ reserva.vehiculo?.anio || reserva.vehiculo?.Anio_Vehiculo }}</p>
             </div>
           </div>
 

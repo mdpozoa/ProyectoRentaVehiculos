@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import api from '../../services/api';
 import CrudModal from '../../components/CrudModal.vue';
+import { useCatalogos } from '@/composables/useCatalogos.js';
 
 const items = ref([]);
 const loading = ref(true);
@@ -14,14 +15,18 @@ const PK = 'ID_Tarifa';
 const ENDPOINT = '/Tarifas';
 const MODULE_NAME = 'Tarifa';
 
-const fields = [
-  { key: 'ID_Tarifa',       label: 'ID Tarifa',        type: 'number',  readOnly: true },
-  { key: 'ID_Categoria',    label: 'ID Categoría',     type: 'number',  required: true },
-  { key: 'V_Diario_Tarifa', label: 'Valor Diario ($)', type: 'decimal', required: true },
-  { key: 'V_Seguro_Tarifa', label: 'Valor Seguro ($)', type: 'decimal', required: true },
-  { key: 'FV_Inicio_Tarifa',label: 'Fecha Inicio',     type: 'date',    required: true },
-  { key: 'FV_Final_Tarifa', label: 'Fecha Fin',        type: 'date',    required: false },
-];
+const { categorias, loadingCatalogos, cargarCatalogos } = useCatalogos();
+
+const fields = computed(() => [
+  { key: 'ID_Tarifa',        label: 'ID Tarifa',        type: 'number',  readOnly: true },
+  { key: 'ID_Categoria',     label: 'Categoría',        type: 'select',  required: true, options: categorias.value },
+  { key: 'V_Diario_Tarifa',  label: 'Valor Diario ($)', type: 'decimal', required: true },
+  { key: 'V_Seguro_Tarifa',  label: 'Valor Seguro ($)', type: 'decimal', required: true },
+  { key: 'FV_Inicio_Tarifa', label: 'Fecha Inicio',     type: 'date',    required: true },
+  { key: 'FV_Final_Tarifa',  label: 'Fecha Fin',        type: 'date',    required: false },
+]);
+
+const catalogosListos = computed(() => !loadingCatalogos.value && categorias.value.length > 0);
 
 const fetchItems = async () => {
   loading.value = true; error.value = null;
@@ -35,7 +40,7 @@ const fetchItems = async () => {
   } finally { loading.value = false; }
 };
 
-const openCreate = () => { modalMode.value = 'create'; selectedItem.value = null; showModal.value = true; };
+const openCreate = () => { if (!catalogosListos.value) return; modalMode.value = 'create'; selectedItem.value = null; showModal.value = true; };
 const openEdit   = (item) => { modalMode.value = 'edit'; selectedItem.value = { ...item }; showModal.value = true; };
 const openView   = (item) => { modalMode.value = 'view'; selectedItem.value = { ...item }; showModal.value = true; };
 
@@ -45,7 +50,7 @@ const deleteItem = async (item) => {
   catch { alert('Error al eliminar. Puede tener registros relacionados.'); }
 };
 
-onMounted(fetchItems);
+onMounted(() => { fetchItems(); cargarCatalogos(); });
 </script>
 
 <template>
