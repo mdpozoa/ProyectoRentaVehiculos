@@ -169,6 +169,24 @@ const reservar = (vehiculo) => {
 
 .card-icono { font-size: 3rem; text-align: center; }
 
+.card-imagen-wrapper {
+  width: 100%;
+  height: 200px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.card-imagen {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .card-info h3 {
   font-size: 1.1rem;
   font-weight: 700;
