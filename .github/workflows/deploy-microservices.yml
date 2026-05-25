@@ -160,3 +160,4 @@ jobs:
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image ${{ env.ACR_NAME }}.azurecr.io/org-service:${{ github.sha }}
           echo "✅ org-service desplegado!"
+
