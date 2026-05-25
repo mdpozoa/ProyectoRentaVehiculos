@@ -16,6 +16,10 @@ env:
   CONTAINER_APP:    nginx-frontend
   IMAGE_NAME:       nginx-frontend
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   build-and-deploy:
     name: Build & Deploy Frontend
