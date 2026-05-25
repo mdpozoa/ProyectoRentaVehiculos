@@ -36,12 +36,23 @@ jobs:
           docker login ${{ env.ACR_NAME }}.azurecr.io -u "$CLIENT_ID" -p "$CLIENT_SECRET"
 
       - name: 🔨 Build imagen Docker
+        id: build
         run: |
           docker build \
             -f Dockerfile.nginx.containerapp \
             -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }} \
             -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest \
-            .
+            . > docker_build.log 2>&1 || (cat docker_build.log && exit 1)
+
+      - name: 📝 Reportar Error de Build
+        if: failure() && steps.build.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo '```' > error.md
+          tail -n 100 docker_build.log >> error.md
+          echo '```' >> error.md
+          gh issue create --title "Docker build failed" --body-file error.md
 
       - name: 📤 Push imagen al ACR
         run: |
