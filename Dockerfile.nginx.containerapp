@@ -1,8 +1,8 @@
 # Stage 1: Build Vue
 FROM node:20-slim AS frontend-builder
 WORKDIR /frontend
-COPY frontend/package.json ./
-RUN npm install
+COPY frontend/package*.json ./
+RUN npm ci
 COPY frontend/src ./src
 COPY frontend/public ./public
 COPY frontend/index.html ./index.html
