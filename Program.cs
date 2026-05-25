@@ -10,6 +10,7 @@ using ProyectoRentaVehiculos.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpClient();
+builder.Services.AddCors();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
