@@ -28,11 +28,10 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: 🐳 Login ACR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.ACR_NAME }}.azurecr.io
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+        run: |
+          CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientId)
+          CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientSecret)
+          docker login ${{ env.ACR_NAME }}.azurecr.io -u "$CLIENT_ID" -p "$CLIENT_SECRET"
 
       - name: 🔨 Build & Push
         run: |
@@ -65,11 +64,10 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: 🐳 Login ACR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.ACR_NAME }}.azurecr.io
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+        run: |
+          CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientId)
+          CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientSecret)
+          docker login ${{ env.ACR_NAME }}.azurecr.io -u "$CLIENT_ID" -p "$CLIENT_SECRET"
 
       - name: 🔨 Build & Push
         run: |
@@ -102,11 +100,10 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: 🐳 Login ACR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.ACR_NAME }}.azurecr.io
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+        run: |
+          CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientId)
+          CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientSecret)
+          docker login ${{ env.ACR_NAME }}.azurecr.io -u "$CLIENT_ID" -p "$CLIENT_SECRET"
 
       - name: 🔨 Build & Push
         run: |
@@ -139,11 +136,10 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: 🐳 Login ACR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.ACR_NAME }}.azurecr.io
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+        run: |
+          CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientId)
+          CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientSecret)
+          docker login ${{ env.ACR_NAME }}.azurecr.io -u "$CLIENT_ID" -p "$CLIENT_SECRET"
 
       - name: 🔨 Build & Push
         run: |
@@ -160,4 +156,6 @@ jobs:
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image ${{ env.ACR_NAME }}.azurecr.io/org-service:${{ github.sha }}
           echo "✅ org-service desplegado!"
+
+
 

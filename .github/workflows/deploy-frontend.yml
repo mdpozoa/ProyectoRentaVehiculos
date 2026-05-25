@@ -6,8 +6,9 @@ on:
     paths:
       - 'frontend/**'
       - 'nginx/**'
+      - 'Dockerfile.nginx*'
       - '.github/workflows/deploy-frontend.yml'
-  workflow_dispatch:   # Permite lanzarlo manualmente desde GitHub
+  workflow_dispatch:
 
 env:
   ACR_NAME:         zenithdrivemateo
@@ -19,23 +20,21 @@ jobs:
   build-and-deploy:
     name: Build & Deploy Frontend
     runs-on: ubuntu-latest
-
     steps:
-      # 1. Checkout del código
       - name: ⬇️ Checkout código
         uses: actions/checkout@v4
 
-      # 2. Login en Azure
       - name: 🔑 Login en Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # 3. Login en Azure Container Registry
       - name: 🐳 Login en ACR
-        run: az acr login --name ${{ env.ACR_NAME }}
+        run: |
+          CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientId)
+          CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientSecret)
+          docker login ${{ env.ACR_NAME }}.azurecr.io -u "$CLIENT_ID" -p "$CLIENT_SECRET"
 
-      # 4. Build de la imagen Docker (Nginx + Vue build dentro del contenedor)
       - name: 🔨 Build imagen Docker
         run: |
           docker build \
@@ -44,26 +43,14 @@ jobs:
             -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest \
             .
 
-      # 5. Push de la imagen al ACR
       - name: 📤 Push imagen al ACR
         run: |
           docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
           docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
 
-      # 6. Actualizar la Container App con la nueva imagen
       - name: 🚀 Deploy a Azure Container Apps
         run: |
           az containerapp update \
             --name ${{ env.CONTAINER_APP }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
-
-      # 7. Verificar que esté corriendo
-      - name: ✅ Verificar deployment
-        run: |
-          az containerapp show \
-            --name ${{ env.CONTAINER_APP }} \
-            --resource-group ${{ env.RESOURCE_GROUP }} \
-            --query "properties.latestRevisionName" \
-            -o tsv
-          echo "✅ Frontend desplegado exitosamente!"
