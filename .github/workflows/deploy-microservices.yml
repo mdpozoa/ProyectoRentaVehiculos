@@ -1,0 +1,146 @@
+name: 🔧 Deploy Microservicios (Node.js)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/**'
+      - '.github/workflows/deploy-microservices.yml'
+  workflow_dispatch:
+
+env:
+  ACR_NAME:       zenithdrivemateo
+  RESOURCE_GROUP: zenithdrive-rg
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # JOB: inventario-service
+  # ─────────────────────────────────────────────────────────────────────────────
+  deploy-inventario:
+    name: 📦 inventario-service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 🔑 Login Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: 🐳 Login ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: 🔨 Build & Push
+        run: |
+          docker build -t ${{ env.ACR_NAME }}.azurecr.io/inventario-service:${{ github.sha }} \
+                       -t ${{ env.ACR_NAME }}.azurecr.io/inventario-service:latest \
+                       ./services/inventario-service
+          docker push ${{ env.ACR_NAME }}.azurecr.io/inventario-service:${{ github.sha }}
+          docker push ${{ env.ACR_NAME }}.azurecr.io/inventario-service:latest
+
+      - name: 🚀 Deploy
+        run: |
+          az containerapp update \
+            --name inventario-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_NAME }}.azurecr.io/inventario-service:${{ github.sha }}
+          echo "✅ inventario-service desplegado!"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # JOB: operaciones-service
+  # ─────────────────────────────────────────────────────────────────────────────
+  deploy-operaciones:
+    name: 📋 operaciones-service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 🔑 Login Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: 🐳 Login ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: 🔨 Build & Push
+        run: |
+          docker build -t ${{ env.ACR_NAME }}.azurecr.io/operaciones-service:${{ github.sha }} \
+                       -t ${{ env.ACR_NAME }}.azurecr.io/operaciones-service:latest \
+                       ./services/operaciones-service
+          docker push ${{ env.ACR_NAME }}.azurecr.io/operaciones-service:${{ github.sha }}
+          docker push ${{ env.ACR_NAME }}.azurecr.io/operaciones-service:latest
+
+      - name: 🚀 Deploy
+        run: |
+          az containerapp update \
+            --name operaciones-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_NAME }}.azurecr.io/operaciones-service:${{ github.sha }}
+          echo "✅ operaciones-service desplegado!"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # JOB: auth-service
+  # ─────────────────────────────────────────────────────────────────────────────
+  deploy-auth:
+    name: 🔐 auth-service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 🔑 Login Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: 🐳 Login ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: 🔨 Build & Push
+        run: |
+          docker build -t ${{ env.ACR_NAME }}.azurecr.io/auth-service:${{ github.sha }} \
+                       -t ${{ env.ACR_NAME }}.azurecr.io/auth-service:latest \
+                       ./services/auth-service
+          docker push ${{ env.ACR_NAME }}.azurecr.io/auth-service:${{ github.sha }}
+          docker push ${{ env.ACR_NAME }}.azurecr.io/auth-service:latest
+
+      - name: 🚀 Deploy
+        run: |
+          az containerapp update \
+            --name auth-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_NAME }}.azurecr.io/auth-service:${{ github.sha }}
+          echo "✅ auth-service desplegado!"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # JOB: org-service
+  # ─────────────────────────────────────────────────────────────────────────────
+  deploy-org:
+    name: 🏢 org-service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 🔑 Login Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: 🐳 Login ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: 🔨 Build & Push
+        run: |
+          docker build -t ${{ env.ACR_NAME }}.azurecr.io/org-service:${{ github.sha }} \
+                       -t ${{ env.ACR_NAME }}.azurecr.io/org-service:latest \
+                       ./services/org-service
+          docker push ${{ env.ACR_NAME }}.azurecr.io/org-service:${{ github.sha }}
+          docker push ${{ env.ACR_NAME }}.azurecr.io/org-service:latest
+
+      - name: 🚀 Deploy
+        run: |
+          az containerapp update \
+            --name org-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_NAME }}.azurecr.io/org-service:${{ github.sha }}
+          echo "✅ org-service desplegado!"
