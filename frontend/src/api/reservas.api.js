@@ -5,7 +5,7 @@
  * Usa apiGateway → YARP en :5050 → reservas-cluster en :5002
  */
 
-import { apiGateway } from '@/services/http.js';
+import { apiGateway } from '../services/http.js';
 
 const RESERVAS_API = {
   /** Lista reservas (admin: todas; cliente: las propias filtradas por backend) */

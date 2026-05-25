@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 // Usamos el API Gateway para consultar al inventario-service (endpoint de booking)
-import { apiGateway } from '@/services/http.js';
+import { apiGateway } from '../services/http.js';
 
 const router = useRouter();
 const vehiculos = ref([]);

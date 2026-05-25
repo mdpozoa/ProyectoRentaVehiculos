@@ -5,7 +5,7 @@
  * Usa apiGateway → YARP en :5050 → catalogo-cluster en :5001
  */
 
-import { apiGateway } from '@/services/http.js';
+import { apiGateway } from '../services/http.js';
 
 const VEHICULOS_API = {
   /** Lista todos los vehículos disponibles */

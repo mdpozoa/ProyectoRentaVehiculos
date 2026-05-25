@@ -9,7 +9,7 @@
  *   - Legado/monolito   → apiMonolith (.NET :5192) — solo si no pasó al gateway
  *
  * USO EN COMPONENTES:
- *   import { apiAuth, apiGateway } from '@/services/http.js'
+ *   import { apiAuth, apiGateway } from '../services/http.js'
  */
 
 import axios from 'axios';

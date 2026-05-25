@@ -5,7 +5,7 @@
  * Usa apiGateway → YARP en :5050 → facturacion-cluster en :5003
  */
 
-import { apiGateway } from '@/services/http.js';
+import { apiGateway } from '../services/http.js';
 
 const FACTURAS_API = {
   getAll(params = {}) {

@@ -8,7 +8,7 @@
  * La lógica va en el store (stores/auth.store.js).
  */
 
-import { apiAuth } from '@/services/http.js';
+import { apiAuth } from '../services/http.js';
 
 const AUTH_API = {
   /**
