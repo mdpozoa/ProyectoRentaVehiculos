@@ -30,7 +30,7 @@ onMounted(async () => {
         categoria: categoriaOpt ? categoriaOpt.label : null,
         disponible: v.Estado_Vehiculo === 'Disponible',
         status: v.Estado_Vehiculo,
-        imagenUrl: `/vehiculos/Spark${(v.Color_Vehiculo || '').trim()}${v.Anio_Vehiculo}.png`
+        imagenUrl: `/fotos_vehiculos/Spark${(v.Color_Vehiculo || '').trim()}${v.Anio_Vehiculo}.png`
       };
     });
     console.log('[DEBUG] Vehículos cargados desde monolito:', vehiculos.value.length);
