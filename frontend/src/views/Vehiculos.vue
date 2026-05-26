@@ -1,28 +1,39 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-// Usamos el API Gateway para consultar al inventario-service (endpoint de booking)
-import { apiGateway } from '../services/http.js';
+import api from '../services/api.js';
+import { useCatalogos } from '@/composables/useCatalogos.js';
 
 const router = useRouter();
 const vehiculos = ref([]);
 const cargando = ref(true);
 const error = ref('');
 
+const { modelos, categorias, cargarCatalogos } = useCatalogos();
+
 onMounted(async () => {
   try {
-    // GET /v1/vehiculos/booking -> inventario-service
-    const res = await apiGateway.get('/v1/vehiculos/booking');
-    console.log('[DEBUG] Vehículos (Booking API) response:', res.data);
-    const responseData = res.data;
+    await cargarCatalogos();
+    const res = await api.get('/Vehiculos');
     
-    // El booking DTO devuelve { success: true, data: { data: [...] } }
-    if (responseData && responseData.data && Array.isArray(responseData.data.data)) {
-      vehiculos.value = responseData.data.data;
-    } else {
-      vehiculos.value = [];
-    }
-    console.log('[DEBUG] Vehículos cargados:', vehiculos.value.length);
+    // Mapear los datos del monolito (C#) al formato que espera la tarjeta (Node.js DTO style)
+    vehiculos.value = res.data.map(v => {
+      const modeloOpt = modelos.value.find(m => m.value === v.ID_Modelo);
+      const categoriaOpt = categorias.value.find(c => c.value === v.ID_Categoria);
+      
+      return {
+        id: v.ID_Vehiculo, // Usamos el ID original del monolito (INT) para que Reservar.vue funcione
+        nombre: modeloOpt ? `${modeloOpt.label} ${v.Anio_Vehiculo}` : `Vehículo #${v.ID_Vehiculo} (${v.Anio_Vehiculo})`,
+        descripcion: `Color: ${v.Color_Vehiculo} | Combustible: ${v.Combustible_Vehiculo} | Placa: ${v.Placa_Vehiculo}`,
+        precioPorDia: 45.00, // Precio por defecto
+        moneda: 'USD',
+        categoria: categoriaOpt ? categoriaOpt.label : null,
+        disponible: v.Estado_Vehiculo === 'Disponible',
+        status: v.Estado_Vehiculo,
+        imagenUrl: null // Aún no hay soporte para imágenes en la BD del monolito
+      };
+    });
+    console.log('[DEBUG] Vehículos cargados desde monolito:', vehiculos.value.length);
   } catch (err) {
     console.error('[ERROR] Error cargando vehículos:', err);
     error.value = 'No se pudieron cargar los vehículos.';
@@ -42,7 +53,7 @@ const getStatusText = (v) => {
 const reservar = (vehiculo) => {
   const token = localStorage.getItem('auth_token');
   if (!token) {
-    localStorage.setItem('vehiculo_pendiente', JSON.stringify(vehiculo));
+    localStorage.setItem('vehiculo_pendiente', JSON.stringify({ ID_Vehiculo: vehiculo.id }));
     router.push('/login');
     return;
   }
