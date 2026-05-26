@@ -48,15 +48,26 @@ const fetchReservas = async () => {
 onMounted(fetchReservas);
 
 const cancelarReserva = async (reserva) => {
-  if (!confirm('¿Estás seguro de que deseas cancelar esta reserva?')) return;
+  const esConfirmada = reserva.Estado_Reserva === 'Confirmada' || reserva.Estado_Reserva === 'Pagada';
+  const mensaje = esConfirmada 
+    ? '¿Estás seguro de que deseas anular esta reserva confirmada? (Se liberará el vehículo pero la factura contable se mantendrá)' 
+    : '¿Estás seguro de que deseas cancelar esta reserva?';
+
+  if (!confirm(mensaje)) return;
   
   try {
-    // Consumimos el endpoint DELETE para cancelar la reserva (como dicta el contrato)
-    await api.delete(`/Reservas/${reserva.ID_Reserva}`);
+    if (esConfirmada) {
+      // Consumimos el nuevo endpoint PATCH para anularla lógicamente
+      await api.patch(`/Reservas/${reserva.ID_Reserva}/anular`);
+      alert('Reserva anulada exitosamente.');
+    } else {
+      // Consumimos el endpoint DELETE para borrar físicamente (reservas pendientes sin factura)
+      await api.delete(`/Reservas/${reserva.ID_Reserva}`);
+      alert('Reserva cancelada exitosamente.');
+    }
     await fetchReservas(); // Recargar la lista
-    alert('Reserva cancelada exitosamente.');
   } catch (err) {
-    alert('No se pudo cancelar la reserva.');
+    alert(err.response?.data?.error || err.response?.data?.detalle || 'No se pudo cancelar la reserva.');
     console.error(err);
   }
 };
