@@ -32,7 +32,7 @@
           </p>
         </div>
         <div class="about-image-container">
-          <img src="/imagens/LOGO CARRO.png" alt="Acerca de Zenith Drive" class="about-image" />
+          <img src="/imagens/CARRO LOGO.png" alt="Acerca de Zenith Drive" class="about-image" />
         </div>
       </div>
     </section>
