@@ -98,6 +98,8 @@ const sseClients: Response[] = [];
 
 // ── Función para actualizar el estado en inventario-service ──
 async function patchVehiculoStatus(vehiculoId: string, status: string, authHeader?: string): Promise<boolean> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
     const res = await fetch(`${INVENTARIO_URL}/api/v1/mateodavid/vehiculos/booking/${vehiculoId}/status`, {
       method: 'PATCH',
@@ -105,12 +107,15 @@ async function patchVehiculoStatus(vehiculoId: string, status: string, authHeade
         'Content-Type': 'application/json',
         ...(authHeader ? { Authorization: authHeader } : {})
       },
-      body: JSON.stringify({ status })
+      body: JSON.stringify({ status }),
+      signal: controller.signal
     });
     return res.ok;
   } catch (err) {
     console.error(`Error actualizando estado del vehículo ${vehiculoId} a ${status}:`, err);
     return false;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -151,9 +156,9 @@ export function createReservaBookingRouter(reservaRepo: ReservaRepository): Rout
     try {
       const { vehiculoId, clienteId, agenciaId: bodyAgenciaId, fechaInicio, fechaFin, clienteNombre, clienteEmail } = req.body;
 
-      // 1. Presence check
-      if (!vehiculoId || !clienteId || !fechaInicio || !fechaFin) {
-        res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'vehiculoId, clienteId, fechaInicio y fechaFin son requeridos' } });
+      // 1. Presence check (clienteId is optional for external booking systems that only send clienteNombre/Email)
+      if (!vehiculoId || !fechaInicio || !fechaFin) {
+        res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'vehiculoId, fechaInicio y fechaFin son requeridos' } });
         return;
       }
 
@@ -210,7 +215,7 @@ export function createReservaBookingRouter(reservaRepo: ReservaRepository): Rout
       }
 
       const reserva = await reservaRepo.create({
-        usuarioId:     clienteId,
+        usuarioId:     clienteId || 'GUEST',
         vehiculoId,
         agenciaId,
         fechaInicio:   fechaInicioDate,
