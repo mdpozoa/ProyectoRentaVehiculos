@@ -2,11 +2,19 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import api from '../services/api';
+import { useCatalogos } from '@/composables/useCatalogos.js';
 
 const router = useRouter();
 const reservas = ref([]);
 const cargando = ref(true);
 const error = ref('');
+
+const { vehiculos, cargarCatalogos } = useCatalogos();
+
+const getVehiculoLabel = (idVehiculo) => {
+  const v = vehiculos.value.find(v => v.value === idVehiculo);
+  return v ? v.label : `Vehículo #${idVehiculo}`;
+};
 
 const fetchReservas = async () => {
   const token = localStorage.getItem('auth_token');
@@ -16,6 +24,9 @@ const fetchReservas = async () => {
   }
 
   try {
+    // Cargar el catálogo de vehículos en paralelo o esperar a que esté listo
+    await cargarCatalogos();
+
     const payload = JSON.parse(atob(token.split('.')[1]));
     const idUsuario = parseInt(payload.id);
 
@@ -129,8 +140,8 @@ const continuarPago = async (reserva) => {
           </div>
           
           <div class="info-item">
-            <span class="label">ID Vehículo</span>
-            <span class="valor">Auto #{{ reserva.ID_Vehiculo }}</span>
+            <span class="label">Vehículo</span>
+            <span class="valor" style="font-weight: 700; color: var(--primary);">{{ getVehiculoLabel(reserva.ID_Vehiculo) }}</span>
           </div>
         </div>
 
