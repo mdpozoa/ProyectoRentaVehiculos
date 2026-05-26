@@ -48,7 +48,41 @@ namespace ProyectoRentaVehiculos.Business
             return reserva;
         }
         public async Task<Reserva?>       UpdateReserva(Reserva req)    => await _reservaDA.UpdateReserva(req);
-        public async Task                 DeleteReserva(int id)         => await _reservaDA.DeleteReserva(id);
+        public async Task DeleteReserva(int id)
+        {
+            var reserva = await _reservaDA.GetReservaById(id);
+            if (reserva != null && reserva.IdVehiculo.HasValue)
+            {
+                var vehiculo = await _vehiculoDA.GetByIdAsync(reserva.IdVehiculo.Value);
+                if (vehiculo != null)
+                {
+                    vehiculo.EstadoVehiculo = "Disponible";
+                    await _vehiculoDA.UpdateAsync(vehiculo);
+                }
+            }
+            await _reservaDA.DeleteReserva(id);
+        }
+
+        public async Task<Reserva?> AnularReserva(int id)
+        {
+            var reserva = await _reservaDA.GetReservaById(id);
+            if (reserva == null) throw new System.Exception("Reserva no encontrada.");
+
+            reserva.EstadoReserva = "Cancelada";
+            var updatedReserva = await _reservaDA.UpdateReserva(reserva);
+
+            if (reserva.IdVehiculo.HasValue)
+            {
+                var vehiculo = await _vehiculoDA.GetByIdAsync(reserva.IdVehiculo.Value);
+                if (vehiculo != null)
+                {
+                    vehiculo.EstadoVehiculo = "Disponible";
+                    await _vehiculoDA.UpdateAsync(vehiculo);
+                }
+            }
+
+            return updatedReserva;
+        }
 
         // ── CONTRATO ─────────────────────────────────────────────────────────
         public async Task<List<Contrato>> GetAllContratos()             => await _reservaDA.GetAllContratos();

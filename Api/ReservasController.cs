@@ -54,6 +54,22 @@ namespace ProyectoRentaVehiculos.Api
             return Ok(data);
         }
 
+        /// <summary>Anula una reserva confirmada cambiando su estado a Cancelada y liberando el vehículo.</summary>
+        [HttpPatch("{id}/anular")]
+        public async Task<IActionResult> Anular(int id)
+        {
+            try
+            {
+                var data = await _reservaBusiness.AnularReserva(id);
+                return Ok(data);
+            }
+            catch (System.Exception ex)
+            {
+                if (ex.Message == "Reserva no encontrada.") return NotFound();
+                return BadRequest(new { error = "No se pudo anular la reserva", detalle = ex.Message });
+            }
+        }
+
         /// <summary>Elimina una reserva por ID.</summary>
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
