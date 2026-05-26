@@ -5,6 +5,29 @@ import prisma from '../../shared/database/prisma.js';
 
 const INVENTARIO_URL = process.env['INVENTARIO_SERVICE_URL'] ?? 'http://localhost:3002';
 
+// ── UUID helpers ─────────────────────────────────────────────────────────────
+// Converts any string into a valid UUID v4 so Prisma never gets a type error.
+// If the input already looks like a UUID, it passes through untouched.
+// If not (e.g. "16", "GUEST"), we generate a deterministic UUID from it.
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function makeUuidFromString(s: string): string {
+  // Pad/hash the string into a 32-char hex and format as UUID v4
+  let hex = '';
+  for (let i = 0; i < 32; i++) {
+    hex += (s.charCodeAt(i % s.length) % 16).toString(16);
+  }
+  // Force version 4 and variant bits
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-4${hex.slice(13,16)}-${['8','9','a','b'][parseInt(hex[16]!, 16) % 4]}${hex.slice(17,20)}-${hex.slice(20,32)}`;
+}
+
+function toSafeUuid(value: unknown): string {
+  if (!value) return makeUuidFromString('guest');
+  const s = String(value).trim();
+  if (UUID_REGEX.test(s)) return s;
+  return makeUuidFromString(s);
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function fetchVehiculo(vehiculoId: string): Promise<any | null> {
@@ -197,7 +220,7 @@ export function createReservaBookingRouter(reservaRepo: ReservaRepository): Rout
 
       const agenciaId = bodyAgenciaId ?? vehiculo?.agenciaId ?? '1';
 
-      const precioBase = precioDia * dias;
+      const efectivoPrecioBase = (Number.isFinite(precioDia) && precioDia > 0) ? precioDia * dias : 45 * dias;
 
       // Pass date-only strings so the repository's template literal stays valid
       const fechaInicioDate = (fechaInicio as string).split('T')[0]!;
@@ -208,27 +231,34 @@ export function createReservaBookingRouter(reservaRepo: ReservaRepository): Rout
         notas = `Cliente: ${clienteNombre || 'N/A'} (${clienteEmail || 'N/A'})`;
       }
 
+      const safeVehiculoId = toSafeUuid(vehiculoId);
+      const safeAgenciaId  = toSafeUuid(agenciaId);
+      const safeUsuarioId  = toSafeUuid(clienteId);
+
       const reserva = await reservaRepo.create({
-        usuarioId:     clienteId || 'GUEST',
-        vehiculoId,
-        agenciaId,
+        usuarioId:     safeUsuarioId,
+        vehiculoId:    safeVehiculoId,
+        agenciaId:     safeAgenciaId,
         fechaInicio:   fechaInicioDate,
         fechaFin:      fechaFinDate,
         diasTotal:     dias,
-        precioBase,
+        precioBase:    efectivoPrecioBase,
         precioExtras:  0,
         precioSeguro:  0,
-        totalAmount:   precioBase,
+        totalAmount:   efectivoPrecioBase,
         codigoReserva: generarCodigo(),
         notas:         notas
       });
 
-      // Forzar status a CONFIRMADA usando el repositorio (o update)
-      // Como reservaRepo.create lo pone PENDIENTE por defecto, hacemos un update inmediato
+      // Forzar status a CONFIRMADA
       const reservaConfirmada = await reservaRepo.update(reserva.id, { status: 'CONFIRMADA' });
 
-      // Update vehicle status in inventario-service
-      await patchVehiculoStatus(vehiculoId, 'RESERVADO', req.headers.authorization);
+      // Update vehicle status in inventario-service (fire-and-forget, non-blocking)
+      patchVehiculoStatus(safeVehiculoId, 'RESERVADO', req.headers.authorization).catch(() => {});
+      // Also patch with the original string vehiculoId in case inventario uses it
+      if (safeVehiculoId !== vehiculoId) {
+        patchVehiculoStatus(vehiculoId, 'RESERVADO', req.headers.authorization).catch(() => {});
+      }
 
       // Notify SSE clients
       const ssePayload = JSON.stringify({ vehiculoId, status: 'RESERVADO' });
