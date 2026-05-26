@@ -93,12 +93,31 @@ const ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
 
 const VALID_STATUSES = Object.keys(ALLOWED_TRANSITIONS);
 
+// ── SSE Clients ───────────────────────────────────────────────────────────────
+const sseClients: Response[] = [];
+
 // ── /reservas/booking ─────────────────────────────────────────────────────────
 export function createReservaBookingRouter(reservaRepo: ReservaRepository): Router {
   const router = Router();
 
+  // GET /api/v1/mateodavid/reservas/booking/stream (SSE)
+  router.get('/stream', (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    sseClients.push(res);
+
+    req.on('close', () => {
+      const idx = sseClients.indexOf(res);
+      if (idx !== -1) sseClients.splice(idx, 1);
+    });
+  });
+
   // GET /api/v1/mateodavid/reservas/booking/:id
   router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+    if (req.params['id'] === 'stream') return next(); // Skip if it's the stream route
     try {
       const reserva = await reservaRepo.findById(req.params['id'] as string);
       if (!reserva) {
@@ -189,6 +208,12 @@ export function createReservaBookingRouter(reservaRepo: ReservaRepository): Rout
       } catch (err) {
         console.error('Error updating vehicle status in inventario-service:', err);
       }
+
+      // Notify SSE clients
+      const ssePayload = JSON.stringify({ vehiculoId, status: 'RENTADO' });
+      sseClients.forEach(client => {
+        client.write(`data: ${ssePayload}\n\n`);
+      });
 
       res.status(201).json({ success: true, data: toReservaBookingDto(reserva) });
     } catch (err) { next(err); }

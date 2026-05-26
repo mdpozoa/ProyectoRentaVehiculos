@@ -1,0 +1,329 @@
+{
+  "consumer": {
+    "name": "Booking-Consumer"
+  },
+  "interactions": [
+    {
+      "description": "una solicitud GET de vehiculos disponibles",
+      "providerStates": [
+        {
+          "name": "existen vehiculos disponibles"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/vehiculos",
+        "query": {
+          "disponible": [
+            "true"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "data": [
+            {
+              "categoria": "Sedan",
+              "disponible": true,
+              "id": "1",
+              "nombre": "Toyota Corolla",
+              "precioPorDia": 45
+            }
+          ],
+          "success": true
+        },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "matchingRules": {
+          "body": {
+            "$.data": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.data[*].categoria": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data[*].nombre": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data[*].precioPorDia": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "decimal"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "una solicitud GET de vehiculo por ID existente",
+      "providerStates": [
+        {
+          "name": "existe un vehiculo con ID 1"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/vehiculos/1"
+      },
+      "response": {
+        "body": {
+          "data": {
+            "disponible": true,
+            "id": "1",
+            "moneda": "USD",
+            "nombre": "Toyota Corolla",
+            "precioPorDia": 45
+          },
+          "success": true
+        },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "matchingRules": {
+          "body": {
+            "$.data.disponible": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.nombre": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.precioPorDia": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "decimal"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "una solicitud de disponibilidad de vehiculo en rango de fechas",
+      "providerStates": [
+        {
+          "name": "existe un vehiculo con ID 1 disponible"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/vehiculos/1/disponibilidad",
+        "query": {
+          "fechaFin": [
+            "2026-06-05"
+          ],
+          "fechaInicio": [
+            "2026-06-01"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "data": {
+            "disponible": true,
+            "mensaje": "El vehiculo esta disponible para las fechas solicitadas."
+          },
+          "success": true
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.data.disponible": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.mensaje": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "una solicitud POST para crear una reserva",
+      "providerStates": [
+        {
+          "name": "existen usuarios, agencias y vehiculos validos"
+        }
+      ],
+      "request": {
+        "body": {
+          "estado_Reserva": "Pendiente",
+          "f_Final_Reserva": "2026-06-05T10:00:00Z",
+          "f_Inicio_Reserva": "2026-06-01T10:00:00Z",
+          "iD_Agencia": 1,
+          "iD_Usuario": 1,
+          "iD_Vehiculo": 1
+        },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "method": "POST",
+        "path": "/api/Reservas"
+      },
+      "response": {
+        "body": {
+          "estado_Reserva": "Pendiente",
+          "f_Final_Reserva": "2026-06-05T10:00:00Z",
+          "f_Inicio_Reserva": "2026-06-01T10:00:00Z",
+          "iD_Agencia": 1,
+          "iD_Reserva": 100,
+          "iD_Usuario": 1,
+          "iD_Vehiculo": 1
+        },
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "matchingRules": {
+          "body": {
+            "$.estado_Reserva": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.f_Final_Reserva": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.f_Inicio_Reserva": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.iD_Agencia": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.iD_Reserva": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.iD_Usuario": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.iD_Vehiculo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      }
+    },
+    {
+      "description": "una solicitud DELETE para cancelar una reserva",
+      "providerStates": [
+        {
+          "name": "existe una reserva con ID 100"
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "path": "/api/Reservas/100"
+      },
+      "response": {
+        "status": 204
+      }
+    }
+  ],
+  "metadata": {
+    "pactRust": {
+      "ffi": "0.4.23",
+      "models": "1.2.5"
+    },
+    "pactSpecification": {
+      "version": "3.0.0"
+    }
+  },
+  "provider": {
+    "name": "CatalogoVehiculos-Provider"
+  }
+}

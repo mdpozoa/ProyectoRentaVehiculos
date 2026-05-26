@@ -15,6 +15,15 @@ dist-ssr/
 .env
 .env.*
 !.env.example
+!.env.example.microservices
+
+# Microservicios Node (services/)
+services/*/dist/
+
+# Angular (Front/)
+Front/.angular/
+Front/dist/
+.angular/
 
 # Supabase / OS / Misc
 .agents/

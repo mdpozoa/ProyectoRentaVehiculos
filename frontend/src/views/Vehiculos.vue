@@ -30,10 +30,26 @@ onMounted(async () => {
         categoria: categoriaOpt ? categoriaOpt.label : null,
         disponible: v.Estado_Vehiculo === 'Disponible',
         status: v.Estado_Vehiculo,
-        imagenUrl: null // Aún no hay soporte para imágenes en la BD del monolito
+        imagenUrl: `/vehiculos/Spark${(v.Color_Vehiculo || '').trim()}${v.Anio_Vehiculo}.png`
       };
     });
     console.log('[DEBUG] Vehículos cargados desde monolito:', vehiculos.value.length);
+    
+    // Iniciar SSE para tiempo real
+    const sseUrl = `${import.meta.env.VITE_API_OPERACIONES ?? 'http://localhost:3006'}/api/v1/mateodavid/reservas/booking/stream`;
+    const sseSource = new EventSource(sseUrl);
+    sseSource.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (payload.vehiculoId) {
+          const v = vehiculos.value.find(veh => veh.id == payload.vehiculoId); // Use == for int/string mismatch
+          if (v) {
+            v.disponible = false;
+            v.status = payload.status || 'RENTADO';
+          }
+        }
+      } catch (e) { console.error('SSE Parse Error', e); }
+    };
   } catch (err) {
     console.error('[ERROR] Error cargando vehículos:', err);
     error.value = 'No se pudieron cargar los vehículos.';
@@ -190,12 +206,13 @@ const reservar = (vehiculo) => {
   align-items: center;
   justify-content: center;
   margin-bottom: 0.5rem;
+  padding: 1rem; /* Margen interior para que la imagen respire */
 }
 
 .card-imagen {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain; /* Para que la imagen se acomode sin deformarse ni cortarse */
 }
 
 .card-info h3 {
