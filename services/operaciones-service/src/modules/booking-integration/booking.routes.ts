@@ -3,22 +3,24 @@ import { ReservaRepository }  from '../reservas/reserva.repository.js';
 import { AlquilerRepository } from '../alquileres/alquiler.repository.js';
 import prisma from '../../shared/database/prisma.js';
 
-const INVENTARIO_URL = process.env['INVENTARIO_SERVICE_URL'] ?? 'http://localhost:3002';
+// ── URLs de servicios externos ────────────────────────────────────────────────
+// Para actualizar el estado del vehículo vamos directo a Supabase REST,
+// así NO dependemos del inventario-service (que en Railway no es localhost:3002).
+const SUPABASE_MONOLITH_URL = 'https://mzgggdprufdvpzybpctv.supabase.co';
+const SUPABASE_MONOLITH_KEY = 'sb_publishable_4R9XAvZLQjxzwgKqUT8jtg_8EG30Pgj';
 
-// ── UUID helpers ─────────────────────────────────────────────────────────────
-// Converts any string into a valid UUID v4 so Prisma never gets a type error.
-// If the input already looks like a UUID, it passes through untouched.
-// If not (e.g. "16", "GUEST"), we generate a deterministic UUID from it.
+// ── UUID helpers ──────────────────────────────────────────────────────────────
+// Prisma exige UUIDs válidos. El sistema de booking puede mandar "16" o "GUEST".
+// toSafeUuid convierte cualquier string a UUID válido de forma determinista.
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function makeUuidFromString(s: string): string {
-  // Pad/hash the string into a 32-char hex and format as UUID v4
   let hex = '';
   for (let i = 0; i < 32; i++) {
     hex += (s.charCodeAt(i % s.length) % 16).toString(16);
   }
-  // Force version 4 and variant bits
-  return `${hex.slice(0,8)}-${hex.slice(8,12)}-4${hex.slice(13,16)}-${['8','9','a','b'][parseInt(hex[16]!, 16) % 4]}${hex.slice(17,20)}-${hex.slice(20,32)}`;
+  const variant = (['8', '9', 'a', 'b'] as const)[parseInt(hex[16]!, 16) % 4]!;
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-4${hex.slice(13,16)}-${variant}${hex.slice(17,20)}-${hex.slice(20,32)}`;
 }
 
 function toSafeUuid(value: unknown): string {
@@ -28,23 +30,33 @@ function toSafeUuid(value: unknown): string {
   return makeUuidFromString(s);
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Actualizar estado vehículo en Supabase (fire-and-forget) ─────────────────
+// Va directo a Supabase REST, sin pasar por inventario-service.
+// Si falla, no rompe el flujo de la reserva.
+function syncVehiculoStatus(vehiculoIdRaw: string | number, nuevoEstado: 'Disponible' | 'Reservado'): void {
+  const idNum = Number(vehiculoIdRaw);
+  if (!Number.isFinite(idNum)) return;
 
-async function fetchVehiculo(vehiculoId: string): Promise<any | null> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8_000);
-  try {
-    // Call the booking endpoint which proxies data from the Monolith C# service
-    const res = await fetch(
-      `${INVENTARIO_URL}/api/v1/mateodavid/vehiculos/booking/${vehiculoId}`,
-      { signal: controller.signal },
-    );
-    if (!res.ok) return null;
-    const body = await res.json() as { success: boolean; data: any };
-    return body.success ? body.data : null;
-  } catch { return null; }
-  finally { clearTimeout(timer); }
+  const timer = setTimeout(() => controller.abort(), 6_000);
+
+  fetch(`${SUPABASE_MONOLITH_URL}/rest/v1/vehiculo?id_vehiculo=eq.${idNum}`, {
+    method: 'PATCH',
+    headers: {
+      'apikey':        SUPABASE_MONOLITH_KEY,
+      'Authorization': `Bearer ${SUPABASE_MONOLITH_KEY}`,
+      'Content-Type':  'application/json',
+      'Prefer':        'return=minimal',
+    },
+    body: JSON.stringify({ estado_vehiculo: nuevoEstado }),
+    signal: controller.signal,
+  })
+    .then(r => console.log(`[syncVehiculo] ${vehiculoIdRaw} → ${nuevoEstado}: HTTP ${r.status}`))
+    .catch(err => console.error(`[syncVehiculo] Error (ignorado):`, err?.message ?? err))
+    .finally(() => clearTimeout(timer));
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function generarCodigo(): string {
   const ts  = Date.now().toString(36).toUpperCase();
@@ -52,33 +64,12 @@ function generarCodigo(): string {
   return `RES-${ts}-${rnd}`;
 }
 
-interface FechaError { error: string }
-interface FechaOk   { dInicio: Date; dFin: Date; dias: number }
-type FechaValidation = FechaError | FechaOk;
-
-function validateFechas(rawInicio: unknown, rawFin: unknown): FechaValidation {
-  if (typeof rawInicio !== 'string' || !rawInicio.trim())
-    return { error: 'fechaInicio debe ser un string ISO 8601 válido' };
-  if (typeof rawFin !== 'string' || !rawFin.trim())
-    return { error: 'fechaFin debe ser un string ISO 8601 válido' };
-
+function calcDias(rawInicio: string, rawFin: string): number {
   const dInicio = new Date(rawInicio);
   const dFin    = new Date(rawFin);
-
-  if (!Number.isFinite(dInicio.getTime()))
-    return { error: 'fechaInicio no es una fecha ISO 8601 válida' };
-  if (!Number.isFinite(dFin.getTime()))
-    return { error: 'fechaFin no es una fecha ISO 8601 válida' };
-
-  const hoy = new Date();
-  hoy.setUTCHours(0, 0, 0, 0);
-  if (dInicio < hoy)
-    return { error: 'fechaInicio no puede ser una fecha pasada' };
-  if (dFin <= dInicio)
-    return { error: 'fechaFin debe ser estrictamente posterior a fechaInicio' };
-
-  const dias = Math.ceil((dFin.getTime() - dInicio.getTime()) / 86_400_000);
-  return { dInicio, dFin, dias };
+  if (!Number.isFinite(dInicio.getTime()) || !Number.isFinite(dFin.getTime())) return 1;
+  const diff = Math.ceil((dFin.getTime() - dInicio.getTime()) / 86_400_000);
+  return diff > 0 ? diff : 1;
 }
 
 function toReservaBookingDto(reserva: any) {
@@ -93,20 +84,11 @@ function toReservaBookingDto(reserva: any) {
     diasTotal:     reserva.diasTotal,
     totalAmount:   Number(reserva.totalAmount),
     status:        reserva.status,
+    notas:         reserva.notas,
   };
 }
 
-// ── State machine (Fix C-4) ───────────────────────────────────────────────────
-//
-// NOTE (Fix C-1): The definitive fix for the vehicle race condition requires a
-// unique partial index in PostgreSQL to be atomic at the DB level:
-//
-//   CREATE UNIQUE INDEX idx_one_active_per_vehicle ON reservas(vehiculo_id)
-//   WHERE status NOT IN ('CANCELADA', 'COMPLETADA');
-//
-// The application-level check below (paso 5) reduces the window but does not
-// eliminate it under high concurrency. Apply the index when possible.
-
+// ── State machine ─────────────────────────────────────────────────────────────
 const ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
   PENDIENTE:  ['CONFIRMADA', 'CANCELADA'],
   CONFIRMADA: ['ACTIVA',     'CANCELADA'],
@@ -120,29 +102,6 @@ const VALID_STATUSES = Object.keys(ALLOWED_TRANSITIONS);
 // ── SSE Clients ───────────────────────────────────────────────────────────────
 const sseClients: Response[] = [];
 
-// ── Función para actualizar el estado en inventario-service ──
-async function patchVehiculoStatus(vehiculoId: string, status: string, authHeader?: string): Promise<boolean> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
-  try {
-    const res = await fetch(`${INVENTARIO_URL}/api/v1/mateodavid/vehiculos/booking/${vehiculoId}/status`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(authHeader ? { Authorization: authHeader } : {})
-      },
-      body: JSON.stringify({ status }),
-      signal: controller.signal
-    });
-    return res.ok;
-  } catch (err) {
-    console.error(`Error actualizando estado del vehículo ${vehiculoId} a ${status}:`, err);
-    return false;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 // ── /reservas/booking ─────────────────────────────────────────────────────────
 export function createReservaBookingRouter(reservaRepo: ReservaRepository): Router {
   const router = Router();
@@ -153,9 +112,7 @@ export function createReservaBookingRouter(reservaRepo: ReservaRepository): Rout
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
-
     sseClients.push(res);
-
     req.on('close', () => {
       const idx = sseClients.indexOf(res);
       if (idx !== -1) sseClients.splice(idx, 1);
@@ -164,7 +121,7 @@ export function createReservaBookingRouter(reservaRepo: ReservaRepository): Rout
 
   // GET /api/v1/mateodavid/reservas/booking/:id
   router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
-    if (req.params['id'] === 'stream') return next(); // Skip if it's the stream route
+    if (req.params['id'] === 'stream') return next();
     try {
       const reserva = await reservaRepo.findById(req.params['id'] as string);
       if (!reserva) {
@@ -178,99 +135,90 @@ export function createReservaBookingRouter(reservaRepo: ReservaRepository): Rout
   // POST /api/v1/mateodavid/reservas/booking
   router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { vehiculoId, clienteId, agenciaId: bodyAgenciaId, fechaInicio, fechaFin, clienteNombre, clienteEmail } = req.body;
+      const {
+        vehiculoId,
+        clienteId,
+        agenciaId: bodyAgenciaId,
+        fechaInicio,
+        fechaFin,
+        clienteNombre,
+        clienteEmail,
+        precioDia: bodyPrecioDia,
+        totalAmount: bodyTotalAmount,
+      } = req.body;
 
-      // 1. Presence check (clienteId is optional for external booking systems that only send clienteNombre/Email)
+      // ── 1. Validación mínima de campos obligatorios ──
       if (!vehiculoId || !fechaInicio || !fechaFin) {
-        res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'vehiculoId, fechaInicio y fechaFin son requeridos' } });
+        res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'vehiculoId, fechaInicio y fechaFin son requeridos' },
+        });
         return;
       }
 
-      // 2. Date validation — Fix C-2
-      const fechaResult = validateFechas(fechaInicio, fechaFin);
-      if ('error' in fechaResult) {
-        res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: fechaResult.error } });
-        return;
-      }
-      const { dias } = fechaResult;
+      // ── 2. Calcular días (sin rechazar por fechas pasadas — el booking externo manda lo que manda) ──
+      const dias = calcDias(String(fechaInicio), String(fechaFin));
 
-      // 3. Vehicle fetch + availability
-      const vehiculo = await fetchVehiculo(vehiculoId);
-      // If fetch fails (inventario-service unreachable), we allow the booking to proceed
-      // since the conflict check at step 5 is the authoritative guard.
-      if (vehiculo && vehiculo.disponible === false) {
-        res.status(422).json({ success: false, error: { code: 'VEHICLE_NOT_AVAILABLE', message: 'El vehículo no está disponible' } });
-        return;
-      }
+      // ── 3. Precio (usa el que manda el booking, o 45 por defecto) ──
+      const precioDia   = Number(bodyPrecioDia) > 0 ? Number(bodyPrecioDia) : 45;
+      const totalAmount = Number(bodyTotalAmount) > 0 ? Number(bodyTotalAmount) : precioDia * dias;
 
-      // 4. Price — use vehiculo price if available, otherwise default to 45
-      const precioDia = vehiculo ? Number(vehiculo.precioDia ?? vehiculo.precioPorDia ?? 45) : 45;
-      if (!Number.isFinite(precioDia) || precioDia <= 0) {
-        // Fallback to 45 instead of rejecting
-      }
-
-      // 5. Active-reservation conflict — application-level Fix C-1
-      const conflicto = await prisma.reserva.findFirst({
-        where: { vehiculoId, status: { notIn: ['CANCELADA', 'COMPLETADA'] } },
-      });
-      if (conflicto) {
-        res.status(409).json({ success: false, error: { code: 'CONFLICT', message: 'El vehículo ya tiene una reserva activa' } });
-        return;
-      }
-
-      const agenciaId = bodyAgenciaId ?? vehiculo?.agenciaId ?? '1';
-
-      const efectivoPrecioBase = (Number.isFinite(precioDia) && precioDia > 0) ? precioDia * dias : 45 * dias;
-
-      // Pass date-only strings so the repository's template literal stays valid
-      const fechaInicioDate = (fechaInicio as string).split('T')[0]!;
-      const fechaFinDate    = (fechaFin    as string).split('T')[0]!;
-
-      let notas = undefined;
-      if (clienteNombre || clienteEmail) {
-        notas = `Cliente: ${clienteNombre || 'N/A'} (${clienteEmail || 'N/A'})`;
-      }
-
+      // ── 4. Strings seguros para Prisma (convierte "16" → UUID válido) ──
       const safeVehiculoId = toSafeUuid(vehiculoId);
-      const safeAgenciaId  = toSafeUuid(agenciaId);
+      const safeAgenciaId  = toSafeUuid(bodyAgenciaId ?? '1');
       const safeUsuarioId  = toSafeUuid(clienteId);
 
+      // Fechas como string "YYYY-MM-DD"
+      const fechaInicioStr = String(fechaInicio).split('T')[0]!;
+      const fechaFinStr    = String(fechaFin).split('T')[0]!;
+
+      // Notas con info del cliente (si viene del booking)
+      let notas: string | undefined;
+      if (clienteNombre || clienteEmail) {
+        notas = `Cliente: ${clienteNombre ?? 'N/A'} (${clienteEmail ?? 'N/A'})`;
+      }
+
+      // ── 5. Crear reserva en BD ──
       const reserva = await reservaRepo.create({
         usuarioId:     safeUsuarioId,
         vehiculoId:    safeVehiculoId,
         agenciaId:     safeAgenciaId,
-        fechaInicio:   fechaInicioDate,
-        fechaFin:      fechaFinDate,
+        fechaInicio:   fechaInicioStr,
+        fechaFin:      fechaFinStr,
         diasTotal:     dias,
-        precioBase:    efectivoPrecioBase,
+        precioBase:    totalAmount,
         precioExtras:  0,
         precioSeguro:  0,
-        totalAmount:   efectivoPrecioBase,
+        totalAmount,
         codigoReserva: generarCodigo(),
-        notas:         notas
+        notas,
       });
 
-      // Forzar status a CONFIRMADA
+      // ── 6. Confirmar reserva inmediatamente ──
       const reservaConfirmada = await reservaRepo.update(reserva.id, { status: 'CONFIRMADA' });
 
-      // Update vehicle status in inventario-service (fire-and-forget, non-blocking)
-      patchVehiculoStatus(safeVehiculoId, 'RESERVADO', req.headers.authorization).catch(() => {});
-      // Also patch with the original string vehiculoId in case inventario uses it
-      if (safeVehiculoId !== vehiculoId) {
-        patchVehiculoStatus(vehiculoId, 'RESERVADO', req.headers.authorization).catch(() => {});
-      }
+      // ── 7. Actualizar vehículo a "Reservado" en Supabase (fire-and-forget, NO bloquea) ──
+      syncVehiculoStatus(vehiculoId, 'Reservado');
 
-      // Notify SSE clients
+      // ── 8. Notificar SSE ──
       const ssePayload = JSON.stringify({ vehiculoId, status: 'RESERVADO' });
-      sseClients.forEach(client => {
-        client.write(`data: ${ssePayload}\n\n`);
-      });
+      sseClients.forEach(client => { client.write(`data: ${ssePayload}\n\n`); });
 
       res.status(201).json({ success: true, data: toReservaBookingDto(reservaConfirmada) });
-    } catch (err) { next(err); }
+
+    } catch (err: any) {
+      // Capturamos errores de Prisma y los devolvemos como 400 (no 500) para que el booking los entienda
+      console.error('[POST /reservas/booking] Error:', err?.message ?? err);
+      if (err?.code === 'P2002') {
+        // Unique constraint — reserva duplicada
+        res.status(409).json({ success: false, error: { code: 'CONFLICT', message: 'Ya existe una reserva para este vehículo' } });
+        return;
+      }
+      next(err);
+    }
   });
 
-  // PATCH /api/v1/mateodavid/reservas/booking/:id — Fix C-4
+  // PATCH /api/v1/mateodavid/reservas/booking/:id
   router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const nuevoStatus: unknown = req.body.status;
@@ -278,10 +226,7 @@ export function createReservaBookingRouter(reservaRepo: ReservaRepository): Rout
       if (typeof nuevoStatus !== 'string' || !VALID_STATUSES.includes(nuevoStatus)) {
         res.status(400).json({
           success: false,
-          error: {
-            code:    'INVALID_STATUS',
-            message: `status inválido. Valores permitidos: ${VALID_STATUSES.join(', ')}`,
-          },
+          error: { code: 'INVALID_STATUS', message: `status inválido. Valores permitidos: ${VALID_STATUSES.join(', ')}` },
         });
         return;
       }
@@ -293,34 +238,32 @@ export function createReservaBookingRouter(reservaRepo: ReservaRepository): Rout
       }
 
       const currentStatus = reserva.status as string;
-      
-      // Idempotency check: if already at the requested status, return OK immediately
+
+      // Idempotencia: si ya está en ese estado, responder OK
       if (currentStatus === nuevoStatus) {
         res.json({ success: true, data: toReservaBookingDto(reserva) });
         return;
       }
 
       const allowed = ALLOWED_TRANSITIONS[currentStatus] ?? [];
-
       if (!allowed.includes(nuevoStatus)) {
         res.status(422).json({
           success: false,
-          error: {
-            code:    'INVALID_TRANSITION',
-            message: `No se puede cambiar de ${currentStatus} a ${nuevoStatus}`,
-          },
+          error: { code: 'INVALID_TRANSITION', message: `No se puede cambiar de ${currentStatus} a ${nuevoStatus}` },
         });
         return;
       }
 
       const updated = await reservaRepo.update(req.params['id'] as string, { status: nuevoStatus });
 
-      // Sync vehicle status based on reservation transition
+      // Sincronizar estado del vehículo (fire-and-forget)
       if (reserva.vehiculoId) {
+        // Intentamos extraer el ID original numérico de las notas o usamos el vehiculoId del reserva
+        const vehiculoIdOriginal = reserva.vehiculoId;
         if (nuevoStatus === 'CANCELADA') {
-          await patchVehiculoStatus(reserva.vehiculoId, 'DISPONIBLE', req.headers.authorization);
+          syncVehiculoStatus(vehiculoIdOriginal, 'Disponible');
         } else if (nuevoStatus === 'CONFIRMADA') {
-          await patchVehiculoStatus(reserva.vehiculoId, 'RESERVADO', req.headers.authorization);
+          syncVehiculoStatus(vehiculoIdOriginal, 'Reservado');
         }
       }
 
@@ -335,7 +278,6 @@ export function createReservaBookingRouter(reservaRepo: ReservaRepository): Rout
 export function createAlquilerBookingRouter(alquilerRepo: AlquilerRepository): Router {
   const router = Router();
 
-  // POST /api/v1/mateodavid/alquileres/booking
   router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { reservaId, kmSalida, fechaInicio, observaciones } = req.body;
@@ -375,14 +317,6 @@ export function createAlquilerBookingRouter(alquilerRepo: AlquilerRepository): R
         return a;
       });
 
-      if (reserva.vehiculoId) {
-        fetch(`${INVENTARIO_URL}/api/v1/mateodavid/vehiculos/${reserva.vehiculoId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', Authorization: req.headers.authorization ?? '' },
-          body: JSON.stringify({ status: 'EN_USO' }),
-        }).catch(() => {});
-      }
-
       const result = await alquilerRepo.findById(alquiler.id);
       res.status(201).json({ success: true, data: result });
     } catch (err) { next(err); }
@@ -395,7 +329,6 @@ export function createAlquilerBookingRouter(alquilerRepo: AlquilerRepository): R
 export function createDevolucionBookingRouter(alquilerRepo: AlquilerRepository): Router {
   const router = Router();
 
-  // POST /api/v1/mateodavid/devoluciones/booking
   router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { alquilerId, kmEntrada, estadoVehiculo, cargoExtra = 0, observaciones } = req.body;
@@ -436,11 +369,7 @@ export function createDevolucionBookingRouter(alquilerRepo: AlquilerRepository):
       });
 
       if (reservaObj?.vehiculoId) {
-        fetch(`${INVENTARIO_URL}/api/v1/mateodavid/vehiculos/${reservaObj.vehiculoId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', Authorization: req.headers.authorization ?? '' },
-          body: JSON.stringify({ status: 'DISPONIBLE', kilometraje: kmEntrada }),
-        }).catch(() => {});
+        syncVehiculoStatus(reservaObj.vehiculoId, 'Disponible');
       }
 
       res.status(201).json({ success: true, data: devolucion });
