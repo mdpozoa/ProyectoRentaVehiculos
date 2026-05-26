@@ -32,7 +32,7 @@
           </p>
         </div>
         <div class="about-image-container">
-          <img src="/imagens/CARRO LOGO.png" alt="Acerca de Zenith Drive" class="about-image" />
+          <img src="/imagens/CARRO LOGO.png?v=3" alt="Acerca de Zenith Drive" class="about-image" />
         </div>
       </div>
     </section>
@@ -90,7 +90,7 @@
   align-items: center;
   justify-content: center;
   /* Usando la nueva imagen de fondo */
-  background-image: url('/imagens/CARRO FONDO.png');
+  background-image: url('/imagens/CARRO FONDO.png?v=3');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;

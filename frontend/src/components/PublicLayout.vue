@@ -51,7 +51,7 @@ const closeMenu = () => { menuOpen.value = false; };
         <div class="logo">
           <router-link to="/" @click="closeMenu">
             <div class="logo-box" style="background:transparent;border:none;">
-              <img src="/imagens/CARRO LETRAS.png" alt="Logo" style="height:58px;object-fit:contain;">
+              <img src="/imagens/CARRO LETRAS.png?v=3" alt="Logo" style="height:58px;object-fit:contain;">
             </div>
           </router-link>
         </div>

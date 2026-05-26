@@ -94,7 +94,7 @@ const registrar = async () => {
 
       <div class="registro-header">
         <router-link to="/">
-          <img src="/imagens/CARRO LETRAS.png" alt="Zenith Drive" style="height: 50px;">
+          <img src="/imagens/CARRO LETRAS.png?v=3" alt="Zenith Drive" style="height: 50px;">
         </router-link>
         <h1>Crear cuenta</h1>
         <p>Regístrate para hacer tu reserva</p>

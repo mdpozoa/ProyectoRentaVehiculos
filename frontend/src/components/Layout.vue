@@ -83,7 +83,7 @@ const isGroupActive = (group) => {
     <aside class="sidebar glass-panel" :class="{ 'mobile-open': isSidebarOpen }">
       <button class="close-sidebar" @click="toggleSidebar">✕</button>
       <div class="sidebar-header">
-        <img src="/imagens/CARRO LETRAS.png" alt="Logo" style="height: 50px; margin-right: 0.5rem;">
+        <img src="/imagens/CARRO LETRAS.png?v=3" alt="Logo" style="height: 50px; margin-right: 0.5rem;">
         <div>
           <h2>Zenith Drive</h2>
           <p class="sidebar-role">Panel Administrador</p>
