@@ -14,7 +14,9 @@ namespace ProyectoRentaVehiculos.Api
         private readonly AdministracionBusiness _business;
         public ModelosController(AdministracionBusiness business) { _business = business; }
 
+        [AllowAnonymous]
         [HttpGet] public async Task<IActionResult> GetAll() => Ok(await _business.GetModelos());
+        [AllowAnonymous]
         [HttpGet("{id}")] public async Task<IActionResult> Get(int id) => Ok(await _business.GetModeloById(id));
         [HttpPost] public async Task<IActionResult> Post(Modelo e) => Ok(await _business.CreateModelo(e));
         [HttpPut] public async Task<IActionResult> Put(Modelo e) => Ok(await _business.UpdateModelo(e));
