@@ -8,7 +8,7 @@ public class VehiculoDA(Client supabase)
 {
     public async Task<List<Vehiculo>> GetAllAsync()
     {
-        var r = await supabase.From<Vehiculo>().Get();
+        var r = await supabase.From<Vehiculo>().Where(v => v.EstadoVehiculo == "Disponible").Get();
         return r.Models.ToList();
     }
 

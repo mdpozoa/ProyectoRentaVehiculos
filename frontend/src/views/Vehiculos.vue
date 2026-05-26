@@ -17,7 +17,9 @@ onMounted(async () => {
     const res = await api.get('/Vehiculos');
     
     // Mapear los datos del monolito (C#) al formato que espera la tarjeta (Node.js DTO style)
-    vehiculos.value = res.data.map(v => {
+    const vehiculosDisponibles = res.data.filter(v => v.Estado_Vehiculo === 'Disponible');
+    
+    vehiculos.value = vehiculosDisponibles.map(v => {
       const modeloOpt = modelos.value.find(m => m.value === v.ID_Modelo);
       const categoriaOpt = categorias.value.find(c => c.value === v.ID_Categoria);
       
@@ -28,7 +30,7 @@ onMounted(async () => {
         precioPorDia: 45.00, // Precio por defecto
         moneda: 'USD',
         categoria: categoriaOpt ? categoriaOpt.label : null,
-        disponible: v.Estado_Vehiculo === 'Disponible',
+        disponible: true, // Siempre true porque ya están filtrados
         status: v.Estado_Vehiculo,
         imagenUrl: `/fotos_vehiculos/Spark${(v.Color_Vehiculo || '').trim()}${v.Anio_Vehiculo}.png`
       };

@@ -290,7 +290,7 @@ onMounted(fetchVehicles);
             <!-- Vehículo -->
             <td>
               <div class="vehicle-cell">
-                <div class="vehicle-img" :style="v.foto ? `background-image:url(${v.foto})` : ''">
+                <div class="vehicle-img" :style="v.foto ? `background-image:url(${v.foto.replace('/vehiculos/', '/fotos_vehiculos/')})` : ''">
                   <span v-if="!v.foto">🚙</span>
                 </div>
                 <div class="vehicle-info">
