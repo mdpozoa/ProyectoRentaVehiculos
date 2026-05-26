@@ -96,6 +96,24 @@ const VALID_STATUSES = Object.keys(ALLOWED_TRANSITIONS);
 // ── SSE Clients ───────────────────────────────────────────────────────────────
 const sseClients: Response[] = [];
 
+// ── Función para actualizar el estado en inventario-service ──
+async function patchVehiculoStatus(vehiculoId: string, status: string, authHeader?: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${INVENTARIO_URL}/api/v1/mateodavid/vehiculos/booking/${vehiculoId}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {})
+      },
+      body: JSON.stringify({ status })
+    });
+    return res.ok;
+  } catch (err) {
+    console.error(`Error actualizando estado del vehículo ${vehiculoId} a ${status}:`, err);
+    return false;
+  }
+}
+
 // ── /reservas/booking ─────────────────────────────────────────────────────────
 export function createReservaBookingRouter(reservaRepo: ReservaRepository): Router {
   const router = Router();
@@ -131,7 +149,7 @@ export function createReservaBookingRouter(reservaRepo: ReservaRepository): Rout
   // POST /api/v1/mateodavid/reservas/booking
   router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { vehiculoId, clienteId, agenciaId: bodyAgenciaId, fechaInicio, fechaFin } = req.body;
+      const { vehiculoId, clienteId, agenciaId: bodyAgenciaId, fechaInicio, fechaFin, clienteNombre, clienteEmail } = req.body;
 
       // 1. Presence check
       if (!vehiculoId || !clienteId || !fechaInicio || !fechaFin) {
@@ -186,6 +204,11 @@ export function createReservaBookingRouter(reservaRepo: ReservaRepository): Rout
       const fechaInicioDate = (fechaInicio as string).split('T')[0]!;
       const fechaFinDate    = (fechaFin    as string).split('T')[0]!;
 
+      let notas = undefined;
+      if (clienteNombre || clienteEmail) {
+        notas = `Cliente: ${clienteNombre || 'N/A'} (${clienteEmail || 'N/A'})`;
+      }
+
       const reserva = await reservaRepo.create({
         usuarioId:     clienteId,
         vehiculoId,
@@ -198,24 +221,23 @@ export function createReservaBookingRouter(reservaRepo: ReservaRepository): Rout
         precioSeguro:  0,
         totalAmount:   precioBase,
         codigoReserva: generarCodigo(),
+        notas:         notas
       });
 
+      // Forzar status a CONFIRMADA usando el repositorio (o update)
+      // Como reservaRepo.create lo pone PENDIENTE por defecto, hacemos un update inmediato
+      const reservaConfirmada = await reservaRepo.update(reserva.id, { status: 'CONFIRMADA' });
+
       // Update vehicle status in inventario-service
-      try {
-        await fetch(`${INVENTARIO_URL}/api/v1/mateodavid/vehiculos/booking/${vehiculoId}/reservar`, {
-          method: 'PATCH'
-        });
-      } catch (err) {
-        console.error('Error updating vehicle status in inventario-service:', err);
-      }
+      await patchVehiculoStatus(vehiculoId, 'RESERVADO', req.headers.authorization);
 
       // Notify SSE clients
-      const ssePayload = JSON.stringify({ vehiculoId, status: 'RENTADO' });
+      const ssePayload = JSON.stringify({ vehiculoId, status: 'RESERVADO' });
       sseClients.forEach(client => {
         client.write(`data: ${ssePayload}\n\n`);
       });
 
-      res.status(201).json({ success: true, data: toReservaBookingDto(reserva) });
+      res.status(201).json({ success: true, data: toReservaBookingDto(reservaConfirmada) });
     } catch (err) { next(err); }
   });
 
@@ -242,6 +264,13 @@ export function createReservaBookingRouter(reservaRepo: ReservaRepository): Rout
       }
 
       const currentStatus = reserva.status as string;
+      
+      // Idempotency check: if already at the requested status, return OK immediately
+      if (currentStatus === nuevoStatus) {
+        res.json({ success: true, data: toReservaBookingDto(reserva) });
+        return;
+      }
+
       const allowed = ALLOWED_TRANSITIONS[currentStatus] ?? [];
 
       if (!allowed.includes(nuevoStatus)) {
@@ -256,6 +285,16 @@ export function createReservaBookingRouter(reservaRepo: ReservaRepository): Rout
       }
 
       const updated = await reservaRepo.update(req.params['id'] as string, { status: nuevoStatus });
+
+      // Sync vehicle status based on reservation transition
+      if (reserva.vehiculoId) {
+        if (nuevoStatus === 'CANCELADA') {
+          await patchVehiculoStatus(reserva.vehiculoId, 'DISPONIBLE', req.headers.authorization);
+        } else if (nuevoStatus === 'CONFIRMADA') {
+          await patchVehiculoStatus(reserva.vehiculoId, 'RESERVADO', req.headers.authorization);
+        }
+      }
+
       res.json({ success: true, data: toReservaBookingDto(updated) });
     } catch (err) { next(err); }
   });
