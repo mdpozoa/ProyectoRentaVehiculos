@@ -1,8 +1,28 @@
-# Stack Node.js + Nginx. Ejecutar desde ProyectoRentaVehiculos:
+# Stack Node.js + Nginx + RabbitMQ. Ejecutar desde ProyectoRentaVehiculos:
 #   docker compose -f docker-compose.microservices.yml --env-file .env.microservices up --build
 version: '3.9'
 
 services:
+
+  # ── RabbitMQ (Broker de eventos local) ──────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    ports:
+      - '5672:5672'   # AMQP
+      - '15672:15672' # Management UI → http://localhost:15672 (guest/guest)
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', 'ping']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - urbancar-net
+    restart: unless-stopped
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
 
   # ── API Gateway ─────────────────────────────────────────────────────────────
   nginx:
@@ -28,9 +48,11 @@ services:
     environment:
       - DATABASE_URL=${AUTH_DATABASE_URL}
       - DIRECT_URL=${AUTH_DIRECT_URL}
-      - JWT_SECRET=${JWT_SECRET}
+      - JWT_SECRET=${AUTH_JWT_SECRET}
+      - NODE_OPTIONS=${NODE_OPTIONS}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
       - PORT=3001
+      - GRPC_PORT=4001
       - NODE_ENV=${NODE_ENV:-production}
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
     networks:
@@ -43,8 +65,10 @@ services:
     environment:
       - DATABASE_URL=${INVENTARIO_DATABASE_URL}
       - DIRECT_URL=${INVENTARIO_DIRECT_URL}
-      - JWT_SECRET=${JWT_SECRET}
+      - JWT_SECRET=${AUTH_JWT_SECRET}
+      - NODE_OPTIONS=${NODE_OPTIONS}
       - PORT=3002
+      - GRPC_PORT=4004
       - NODE_ENV=${NODE_ENV:-production}
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
     networks:
@@ -57,8 +81,10 @@ services:
     environment:
       - DATABASE_URL=${ORG_DATABASE_URL}
       - DIRECT_URL=${ORG_DIRECT_URL}
-      - JWT_SECRET=${JWT_SECRET}
+      - JWT_SECRET=${AUTH_JWT_SECRET}
+      - NODE_OPTIONS=${NODE_OPTIONS}
       - PORT=3003
+      - GRPC_PORT=4007
       - NODE_ENV=${NODE_ENV:-production}
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
     networks:
@@ -71,11 +97,14 @@ services:
     environment:
       - DATABASE_URL=${OPERACIONES_DATABASE_URL}
       - DIRECT_URL=${OPERACIONES_DIRECT_URL}
-      - JWT_SECRET=${JWT_SECRET}
+      - JWT_SECRET=${AUTH_JWT_SECRET}
+      - NODE_OPTIONS=${NODE_OPTIONS}
       - PORT=3004
       - NODE_ENV=${NODE_ENV:-production}
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
       - INVENTARIO_SERVICE_URL=http://inventario-service:3002
+      - INVENTARIO_GRPC_HOST=inventario-service
+      - INVENTARIO_GRPC_PORT=4004
     networks:
       - urbancar-net
     restart: unless-stopped
@@ -86,10 +115,19 @@ services:
     environment:
       - DATABASE_URL=${FINANCIERO_DATABASE_URL}
       - DIRECT_URL=${FINANCIERO_DIRECT_URL}
-      - JWT_SECRET=${JWT_SECRET}
+      - JWT_SECRET=${AUTH_JWT_SECRET}
+      - NODE_OPTIONS=${NODE_OPTIONS}
       - PORT=3005
+      - GRPC_PORT=4003
       - NODE_ENV=${NODE_ENV:-production}
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - AZURE_SERVICEBUS_CONNECTION_STRING=${AZURE_SERVICEBUS_CONNECTION_STRING:-}
+      - AZURE_SERVICEBUS_TOPIC=${AZURE_SERVICEBUS_TOPIC:-urbancar-eventos}
+      - AZURE_SERVICEBUS_SUBSCRIPTION=financiero-sub
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     networks:
       - urbancar-net
     restart: unless-stopped
@@ -100,31 +138,45 @@ services:
     environment:
       - DATABASE_URL=${MANTENIMIENTO_DATABASE_URL}
       - DIRECT_URL=${MANTENIMIENTO_DIRECT_URL}
-      - JWT_SECRET=${JWT_SECRET}
+      - JWT_SECRET=${AUTH_JWT_SECRET}
+      - NODE_OPTIONS=${NODE_OPTIONS}
       - PORT=3006
       - NODE_ENV=${NODE_ENV:-production}
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - AZURE_SERVICEBUS_CONNECTION_STRING=${AZURE_SERVICEBUS_CONNECTION_STRING:-}
+      - AZURE_SERVICEBUS_TOPIC=${AZURE_SERVICEBUS_TOPIC:-urbancar-eventos}
+      - AZURE_SERVICEBUS_SUBSCRIPTION=mantenimiento-sub
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     networks:
       - urbancar-net
     restart: unless-stopped
 
-  # ── bus-service (puerto 3007) — API Gateway / Orquestador ────────────────────
+  # ── bus-service (puerto 3007) — Orquestador + WebSocket ──────────────────────
   bus-service:
     build: ./services/bus-service
     environment:
-      - JWT_SECRET=${JWT_SECRET}
+      - JWT_SECRET=${AUTH_JWT_SECRET}
       - PORT=3007
       - NODE_ENV=${NODE_ENV:-production}
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - AZURE_SERVICEBUS_CONNECTION_STRING=${AZURE_SERVICEBUS_CONNECTION_STRING:-}
       - AZURE_SERVICEBUS_TOPIC=${AZURE_SERVICEBUS_TOPIC:-urbancar-eventos}
       - OPERACIONES_SERVICE_URL=http://operaciones-service:3004
       - INVENTARIO_SERVICE_URL=http://inventario-service:3002
       - FINANCIERO_SERVICE_URL=http://financiero-service:3005
     depends_on:
-      - operaciones-service
-      - inventario-service
-      - financiero-service
+      rabbitmq:
+        condition: service_healthy
+      operaciones-service:
+        condition: service_started
+      inventario-service:
+        condition: service_started
+      financiero-service:
+        condition: service_started
     networks:
       - urbancar-net
     restart: unless-stopped
@@ -132,3 +184,7 @@ services:
 networks:
   urbancar-net:
     driver: bridge
+
+volumes:
+  rabbitmq-data:
+

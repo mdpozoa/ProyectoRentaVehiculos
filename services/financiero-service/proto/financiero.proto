@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package zenith.financiero.v1;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PagoService — gRPC expuesto por financiero-service (puerto 4003)
+// Consumido por: operaciones-service (verificar pago antes de iniciar alquiler)
+// ═══════════════════════════════════════════════════════════════════════════════
+service PagoService {
+
+  // Consulta el estado de pago de una reserva específica.
+  // Llamado por operaciones-service ANTES de iniciar un alquiler
+  // para verificar que la reserva está pagada.
+  rpc GetPagoByReserva (GetPagoByReservaRequest)
+      returns (GetPagoByReservaResponse);
+
+  // Solicita la generación de una factura para un alquiler completado.
+  // Fallback síncrono cuando el evento DEVOLUCION_REGISTRADA no se recibe.
+  rpc GenerarFactura (GenerarFacturaRequest)
+      returns (GenerarFacturaResponse);
+
+  // Registra un nuevo pago para una reserva.
+  rpc CreatePago (CreatePagoRequest)
+      returns (CreatePagoResponse);
+}
+
+// ── GetPagoByReserva ──────────────────────────────────────────────────────────
+
+message GetPagoByReservaRequest {
+  string reserva_id = 1;
+}
+
+message GetPagoByReservaResponse {
+  bool   found       = 1;
+  string pago_id     = 2;
+  string reserva_id  = 3;
+  double monto       = 4;
+  string metodo_pago = 5;
+  string status      = 6;  // PENDIENTE | COMPLETADO | FALLIDO | REEMBOLSADO
+  string referencia  = 7;
+  string created_at  = 8;
+}
+
+// ── GenerarFactura ────────────────────────────────────────────────────────────
+
+message GenerarFacturaRequest {
+  string reserva_id   = 1;
+  string pago_id      = 2;
+  string ruc_cliente  = 3;
+  string razon_social = 4;
+  repeated DetalleFacturaItem detalles = 5;
+}
+
+message DetalleFacturaItem {
+  string descripcion = 1;
+  int32  cantidad    = 2;
+  double precio_unit = 3;
+}
+
+message GenerarFacturaResponse {
+  bool   success        = 1;
+  string factura_id     = 2;
+  string numero_factura = 3;
+  double subtotal       = 4;
+  double iva            = 5;
+  double total          = 6;
+  string mensaje        = 7;
+}
+
+// ── CreatePago ────────────────────────────────────────────────────────────────
+
+message CreatePagoRequest {
+  string reserva_id  = 1;
+  double monto       = 2;
+  string metodo_pago = 3;  // TARJETA_CREDITO | TARJETA_DEBITO | TRANSFERENCIA | EFECTIVO
+  string referencia  = 4;
+}
+
+message CreatePagoResponse {
+  bool   success   = 1;
+  string pago_id   = 2;
+  string status    = 3;
+  string mensaje   = 4;
+}

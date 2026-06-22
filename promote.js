@@ -1,0 +1,1 @@
+const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function main() { await prisma.usuario.update({ where: { email: 'mateopozo240@gmail.com' }, data: { role: 'ADMIN' } }); console.log('? Ascendido a ADMIN!'); } main().catch(e => console.error(e)).finally(() => prisma.$disconnect());

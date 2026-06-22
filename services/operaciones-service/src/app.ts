@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
 import { createReservaRouter }     from './modules/reservas/reserva.routes.js';
+import { createReservaV2Router }   from './modules/reservas/reserva.v2.routes.js';
 import { createAlquilerRouter }    from './modules/alquileres/alquiler.routes.js';
 import { createCatalogoOpsRouter } from './modules/catalogos/catalogo-ops.routes.js';
 import {
@@ -120,6 +121,9 @@ app.use('/api/v1/mateodavid/devoluciones/booking', createDevolucionBookingRouter
 app.use('/api/v1/mateodavid/reservas',   createReservaRouter(reservaController));
 app.use('/api/v1/mateodavid/alquileres', createAlquilerRouter(alquilerController));
 app.use('/api/v1/mateodavid', createCatalogoOpsRouter(catalogoOpsController));
+
+// ── API v2 — Rutas versionadas con paginación y HATEOAS ──────────────────────
+app.use('/api/v2/mateodavid/operaciones/reservas', createReservaV2Router(reservaRepository));
 
 // Integración Booking: endpoint plano POST /devoluciones (legado)
 app.post(

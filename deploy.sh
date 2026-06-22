@@ -103,6 +103,7 @@ deploy_service auth-service auth-service:latest 3001 \
   "JWT_SECRET=$JWT_SECRET" \
   "JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}" \
   "PORT=3001" \
+  "GRPC_PORT=4001" \
   "NODE_ENV=production" \
   "CORS_ORIGIN=*"
 
@@ -111,6 +112,7 @@ deploy_service inventario-service inventario-service:latest 3002 \
   "DIRECT_URL=$INVENTARIO_DIRECT_URL" \
   "JWT_SECRET=$JWT_SECRET" \
   "PORT=3002" \
+  "GRPC_PORT=4004" \
   "NODE_ENV=production" \
   "CORS_ORIGIN=*"
 
@@ -119,6 +121,7 @@ deploy_service org-service org-service:latest 3003 \
   "DIRECT_URL=$ORG_DIRECT_URL" \
   "JWT_SECRET=$JWT_SECRET" \
   "PORT=3003" \
+  "GRPC_PORT=4007" \
   "NODE_ENV=production" \
   "CORS_ORIGIN=*"
 
@@ -129,13 +132,16 @@ deploy_service operaciones-service operaciones-service:latest 3004 \
   "PORT=3004" \
   "NODE_ENV=production" \
   "CORS_ORIGIN=*" \
-  "INVENTARIO_SERVICE_URL=http://inventario-service"
+  "INVENTARIO_SERVICE_URL=http://inventario-service" \
+  "INVENTARIO_GRPC_HOST=inventario-service" \
+  "INVENTARIO_GRPC_PORT=4004"
 
 deploy_service financiero-service financiero-service:latest 3005 \
   "DATABASE_URL=$FINANCIERO_DATABASE_URL" \
   "DIRECT_URL=$FINANCIERO_DIRECT_URL" \
   "JWT_SECRET=$JWT_SECRET" \
   "PORT=3005" \
+  "GRPC_PORT=4003" \
   "NODE_ENV=production" \
   "CORS_ORIGIN=*"
 

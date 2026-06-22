@@ -9,7 +9,7 @@ export function validateBody(schema: ZodSchema) {
         field:   e.path.join('.'),
         message: e.message,
       }));
-      res.status(400).json({
+      console.error('Validation Error:', errors, 'Body:', req.body); res.status(400).json({
         success: false,
         error: { code: 'VALIDATION_ERROR', message: 'Datos de entrada inválidos', errors },
       });

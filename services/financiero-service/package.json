@@ -11,7 +11,11 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@azure/service-bus": "^7.9.5",
+    "@grpc/grpc-js": "^1.14.4",
+    "@grpc/proto-loader": "^0.8.1",
     "@prisma/client": "^5.22.0",
+    "amqplib": "^0.10.9",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
@@ -20,6 +24,7 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@types/amqplib": "^0.10.8",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",

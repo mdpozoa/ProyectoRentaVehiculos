@@ -4,9 +4,8 @@ import { PagoController }    from '../modules/pagos/pago.controller.js';
 import { FacturaRepository } from '../modules/facturas/factura.repository.js';
 import { FacturaController } from '../modules/facturas/factura.controller.js';
 
-const pagoRepo    = new PagoRepository(prisma);
-const facturaRepo = new FacturaRepository(prisma);
+export const pagoRepository    = new PagoRepository(prisma);
+export const facturaRepository = new FacturaRepository(prisma);
 
-export const pagoRepository    = pagoRepo;
-export const pagoController    = new PagoController(pagoRepo);
-export const facturaController = new FacturaController(facturaRepo);
+export const pagoController    = new PagoController(pagoRepository);
+export const facturaController = new FacturaController(facturaRepository);

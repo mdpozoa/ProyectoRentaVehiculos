@@ -22,6 +22,11 @@ export function createReservaRouter(controller: ReservaController): Router {
     controller.cancel,
   );
 
+  router.patch('/:id/confirmar',
+    authenticate,
+    controller.confirm,
+  );
+
   router.patch('/:id',
     authenticate, requireAdmin,
     validateBody(ReservaUpdateSchema),

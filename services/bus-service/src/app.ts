@@ -3,6 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import { createOrchestratorRouter } from './modules/orchestrator/orchestrator.routes.js';
 import { isSenderConnected } from './shared/bus/service-bus.js';
+import { isRabbitMQConnected } from './shared/rabbitmq/rabbitmq-publisher.js';
+import { getConnectedClients } from './shared/websocket/ws-server.js';
 
 const app = express();
 
@@ -15,6 +17,8 @@ app.get('/health', (_req, res) => {
     service: 'bus-service',
     status: 'ok',
     azureServiceBus: isSenderConnected(),
+    rabbitMQ: isRabbitMQConnected(),
+    websocketClients: getConnectedClients(),
     timestamp: new Date().toISOString(),
   });
 });

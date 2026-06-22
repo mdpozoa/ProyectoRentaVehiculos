@@ -25,7 +25,23 @@ export class PagoController {
 
   create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      res.status(201).json({ success: true, data: await this.pagoRepository.create(req.body) });
+      const pago = await this.pagoRepository.create(req.body);
+
+      // Notificar a operaciones-service que la reserva está PAGADA/CONFIRMADA
+      try {
+        const OPERACIONES_URL = process.env['OPERACIONES_SERVICE_URL'] || 'http://proyectorentavehiculos-operaciones-service-1:3004';
+        await fetch(`${OPERACIONES_URL}/api/v1/mateodavid/reservas/${pago.reservaId}/confirmar`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': req.headers.authorization || '',
+            'Content-Type': 'application/json'
+          }
+        });
+      } catch (e) {
+        console.error('Error al confirmar reserva tras pago:', e);
+      }
+
+      res.status(201).json({ success: true, data: pago });
     } catch (err) { next(err); }
   };
 

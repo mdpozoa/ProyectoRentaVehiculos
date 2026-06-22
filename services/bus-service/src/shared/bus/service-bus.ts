@@ -1,9 +1,20 @@
 import { ServiceBusClient, ServiceBusSender } from '@azure/service-bus';
 import { randomUUID } from 'crypto';
 import { BusEvent, EventType } from './event-types.js';
+import { publishToRabbitMQ, isRabbitMQConnected } from '../rabbitmq/rabbitmq-publisher.js';
+import { broadcast } from '../websocket/ws-server.js';
 
 const inMemoryLog: BusEvent[] = [];
 let sender: ServiceBusSender | null = null;
+
+/** Mapea EventType a routing key de RabbitMQ */
+const ROUTING_KEY_MAP: Record<EventType, string> = {
+  RESERVA_CREADA:        'reserva.created',
+  RESERVA_CANCELADA:     'reserva.cancelled',
+  ALQUILER_INICIADO:     'alquiler.started',
+  ALQUILER_CANCELADO:    'alquiler.cancelled',
+  DEVOLUCION_REGISTRADA: 'devolucion.registered',
+};
 
 function initSender(): void {
   const connStr = process.env.AZURE_SERVICEBUS_CONNECTION_STRING;
@@ -29,6 +40,8 @@ export async function publishEvent(
   entidadId: string,
   payload: Record<string, unknown>,
 ): Promise<BusEvent> {
+  const routingKey = ROUTING_KEY_MAP[tipo] ?? tipo.toLowerCase().replace(/_/g, '.');
+
   const event: BusEvent = {
     id: randomUUID(),
     tipo,
@@ -36,14 +49,29 @@ export async function publishEvent(
     entidadId,
     payload,
     publicadoEn: new Date().toISOString(),
-    destino: sender ? 'azure-service-bus' : 'local',
+    destino: isRabbitMQConnected() ? 'rabbitmq' : (sender ? 'azure-service-bus' : 'local'),
   };
 
+  // ── 1. RabbitMQ (broker local, preferido) ───────────────────────────────────
+  const rmqPayload = { ...payload, id: event.id, usuarioId, entidadId, tipo, publicadoEn: event.publicadoEn };
+  const rmqPublished = await publishToRabbitMQ(routingKey, rmqPayload);
+
+  // ── 2. Azure Service Bus (fallback externo) ──────────────────────────────────
   if (sender) {
-    await sender.sendMessages({ body: event, contentType: 'application/json', subject: tipo });
-  } else {
+    try {
+      await sender.sendMessages({ body: event, contentType: 'application/json', subject: tipo });
+      if (!rmqPublished) event.destino = 'azure-service-bus';
+    } catch (err) {
+      console.warn('[bus-service] Error publicando en Azure SB:', (err as Error).message);
+    }
+  }
+
+  if (!rmqPublished && !sender) {
     console.log('[bus-service][local-event]', JSON.stringify(event));
   }
+
+  // ── 3. WebSocket broadcast (tiempo real) ─────────────────────────────────────
+  broadcast(tipo, { ...event, routingKey });
 
   inMemoryLog.unshift(event);
   if (inMemoryLog.length > 200) inMemoryLog.pop();

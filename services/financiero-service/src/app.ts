@@ -8,6 +8,8 @@ import { pagoRepository, pagoController, facturaController } from './shared/cont
 import { createPaymentBookingRouter } from './modules/booking-integration/payment-booking.routes.js';
 import { errorHandler } from './shared/errors/error.middleware.js';
 import { swaggerSpec } from './shared/swagger.js';
+import { startEventConsumer } from './shared/bus/event-consumer.js';
+import { startRabbitMQConsumer } from './shared/rabbitmq/rabbitmq-consumer.js';
 
 const app = express();
 
@@ -29,4 +31,13 @@ app.use('/api/v1/mateodavid/facturas', createFacturaRouter(facturaController));
 
 app.use(errorHandler);
 
+// ── Iniciar consumers de eventos (no bloquean el startup) ──────────────────────
+startEventConsumer().catch(err =>
+  console.error('[financiero-service] Error arrancando Azure SB consumer:', err),
+);
+startRabbitMQConsumer().catch(err =>
+  console.error('[financiero-service] Error arrancando RabbitMQ consumer:', err),
+);
+
 export default app;
+

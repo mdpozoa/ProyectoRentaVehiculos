@@ -4,8 +4,8 @@ import { OrganizacionController } from '../modules/organizaciones/organizacion.c
 import { UbicacionRepository }    from '../modules/ubicaciones/ubicacion.repository.js';
 import { UbicacionController }    from '../modules/ubicaciones/ubicacion.controller.js';
 
-const organizacionRepo = new OrganizacionRepository(prisma);
-const ubicacionRepo    = new UbicacionRepository(prisma);
+export const organizacionRepo = new OrganizacionRepository(prisma);
+export const ubicacionRepo    = new UbicacionRepository(prisma);
 
 export const organizacionController = new OrganizacionController(organizacionRepo);
 export const ubicacionController    = new UbicacionController(ubicacionRepo);

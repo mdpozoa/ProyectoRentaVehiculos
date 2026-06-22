@@ -2,14 +2,35 @@ import { Request, Response, NextFunction } from 'express';
 import { AlquilerRepository } from './alquiler.repository.js';
 import { NotFoundException, ValidationException } from '../../shared/errors/BusinessException.js';
 import prisma from '../../shared/database/prisma.js';
+import { updateVehiculoEstado } from '../../shared/grpc/inventario-grpc-client.js';
 
 const INVENTARIO_URL = process.env['INVENTARIO_SERVICE_URL'] ?? 'http://localhost:3002';
 
-async function patchVehiculoStatus(vehiculoId: string, data: object, authHeader?: string) {
+async function patchVehiculoStatus(
+  vehiculoId: string,
+  status: string,
+  usuarioId: string,
+  motivo: string,
+  kilometraje?: number,
+  authHeader?: string
+) {
+  try {
+    const grpcResult = await updateVehiculoEstado(vehiculoId, status, usuarioId, motivo);
+    if (grpcResult?.success) {
+      console.log(`[alquiler-controller] ✅ Vehículo ${vehiculoId} actualizado a ${status} vía gRPC`);
+      return;
+    }
+  } catch (err: any) {
+    console.warn(`[alquiler-controller] Falló actualización gRPC (usando fallback HTTP):`, err.message);
+  }
+
+  // Fallback REST HTTP
+  const bodyData: any = { status };
+  if (kilometraje !== undefined) bodyData.kilometraje = kilometraje;
   fetch(`${INVENTARIO_URL}/api/v1/mateodavid/vehiculos/${vehiculoId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: authHeader ?? '' },
-    body: JSON.stringify(data),
+    body: JSON.stringify(bodyData),
   }).catch(() => {});
 }
 
@@ -61,7 +82,7 @@ export class AlquilerController {
       });
 
       if (reserva.vehiculoId) {
-        patchVehiculoStatus(reserva.vehiculoId, { status: 'EN_USO' }, req.headers.authorization);
+        patchVehiculoStatus(reserva.vehiculoId, 'EN_USO', req.user!.id, 'Inicio de alquiler', undefined, req.headers.authorization);
       }
 
       res.status(201).json({ success: true, data: await this.alquilerRepository.findById(alquiler.id) });
@@ -111,7 +132,7 @@ export class AlquilerController {
       });
 
       if (reservaObj?.vehiculoId) {
-        patchVehiculoStatus(reservaObj.vehiculoId, { status: 'DISPONIBLE', kilometraje: kmEntrada }, req.headers.authorization);
+        patchVehiculoStatus(reservaObj.vehiculoId, 'DISPONIBLE', req.user!.id, 'Fin de alquiler (devolución)', kmEntrada, req.headers.authorization);
       }
 
       res.status(201).json({ success: true, data: devolucion });
@@ -146,7 +167,7 @@ export class AlquilerController {
       });
 
       if (reservaObj?.vehiculoId) {
-        patchVehiculoStatus(reservaObj.vehiculoId, { status: 'DISPONIBLE', kilometraje: kmEntrada }, req.headers.authorization);
+        patchVehiculoStatus(reservaObj.vehiculoId, 'DISPONIBLE', req.user?.id ?? 'SYSTEM', 'Fin de alquiler (devolución flat)', kmEntrada, req.headers.authorization);
       }
 
       res.status(201).json({ success: true, data: devolucion });

@@ -8,6 +8,8 @@ import { createSistemaExternoRouter } from './modules/sistemas/sistema-externo.r
 import { mantenimientoController, kardexController, sistemaExternoController } from './shared/container.js';
 import { errorHandler } from './shared/errors/error.middleware.js';
 import { swaggerSpec } from './shared/swagger.js';
+import { startEventConsumer } from './shared/bus/event-consumer.js';
+import { startRabbitMQConsumer } from './shared/rabbitmq/rabbitmq-consumer.js';
 
 const app = express();
 
@@ -26,5 +28,13 @@ app.use('/api/v1/mateodavid/kardex',            createKardexRouter(kardexControl
 app.use('/api/v1/mateodavid/sistemas-externos', createSistemaExternoRouter(sistemaExternoController));
 
 app.use(errorHandler);
+
+// ── Iniciar consumers de eventos (no bloquean el startup) ──────────────────────
+startEventConsumer().catch(err =>
+  console.error('[mantenimiento-service] Error arrancando Azure SB consumer:', err),
+);
+startRabbitMQConsumer().catch(err =>
+  console.error('[mantenimiento-service] Error arrancando RabbitMQ consumer:', err),
+);
 
 export default app;

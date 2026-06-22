@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package zenith.inventario.v1;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VehiculoService — gRPC expuesto por inventario-service (puerto 4004)
+// Consumido por: operaciones-service (validación de disponibilidad al reservar)
+// ═══════════════════════════════════════════════════════════════════════════════
+service VehiculoService {
+
+  // Verifica disponibilidad y precio de un vehículo en un rango de fechas.
+  // Llamado SINCRÓNICAMENTE por operaciones-service al crear una reserva.
+  rpc CheckDisponibilidad (CheckDisponibilidadRequest)
+      returns (CheckDisponibilidadResponse);
+
+  // Actualiza el estado físico de un vehículo en inventario.
+  // Llamado por operaciones-service al iniciar o finalizar un alquiler.
+  rpc UpdateEstado (UpdateEstadoRequest)
+      returns (UpdateEstadoResponse);
+
+  // Consulta información básica de un vehículo para denormalización.
+  // Usado para enriquecer payloads de eventos sin hacer JOIN inter-servicio.
+  rpc GetVehiculoInfo (GetVehiculoInfoRequest)
+      returns (GetVehiculoInfoResponse);
+}
+
+// ── CheckDisponibilidad ────────────────────────────────────────────────────────
+
+message CheckDisponibilidadRequest {
+  string vehiculo_id  = 1;  // UUID del vehículo en inventario-service
+  string fecha_inicio = 2;  // "YYYY-MM-DD"
+  string fecha_fin    = 3;  // "YYYY-MM-DD"
+}
+
+message CheckDisponibilidadResponse {
+  bool   disponible  = 1;
+  string vehiculo_id = 2;
+  string status      = 3;  // DISPONIBLE | RESERVADO | EN_USO | MANTENIMIENTO | INACTIVO
+  double precio_dia  = 4;
+  string agencia_id  = 5;
+  string mensaje     = 6;
+}
+
+// ── UpdateEstado ───────────────────────────────────────────────────────────────
+
+message UpdateEstadoRequest {
+  string vehiculo_id    = 1;
+  string nuevo_estado   = 2;  // DISPONIBLE | RESERVADO | EN_USO | MANTENIMIENTO | INACTIVO
+  string correlation_id = 3;
+  string usuario_id     = 4;
+  string motivo         = 5;  // Ej: "RESERVA_CREADA", "ALQUILER_INICIADO"
+}
+
+message UpdateEstadoResponse {
+  bool   success       = 1;
+  string vehiculo_id   = 2;
+  string estado_previo = 3;
+  string estado_nuevo  = 4;
+  string mensaje       = 5;
+}
+
+// ── GetVehiculoInfo ────────────────────────────────────────────────────────────
+
+message GetVehiculoInfoRequest {
+  string vehiculo_id = 1;
+}
+
+message GetVehiculoInfoResponse {
+  string vehiculo_id  = 1;
+  string placa        = 2;
+  string nombre       = 3;  // "Chevrolet Spark 2022"
+  string categoria    = 4;
+  double precio_dia   = 5;
+  string agencia_id   = 6;
+  string imagen_url   = 7;
+  string status       = 8;
+  bool   is_active    = 9;
+}

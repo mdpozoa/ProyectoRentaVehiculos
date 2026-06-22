@@ -1,13 +1,13 @@
-# Stage 1: Build frontend (uses `frontend` folder)
+# Stage 1: Build frontend (uses `admin-dashboard` folder)
 FROM node:20-alpine AS frontend-builder
-WORKDIR /frontend
-COPY frontend/package*.json ./
+WORKDIR /admin-dashboard
+COPY admin-dashboard/package*.json ./
 RUN npm install
-COPY frontend/ .
+COPY admin-dashboard/ .
 RUN npm run build
 
 # Stage 2: Nginx sirve el frontend + gateway a los microservicios
 FROM nginx:alpine
-COPY --from=frontend-builder /frontend/dist /usr/share/nginx/html
+COPY --from=frontend-builder /admin-dashboard/dist /usr/share/nginx/html
 COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80

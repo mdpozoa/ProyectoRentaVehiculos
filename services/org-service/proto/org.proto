@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package zenith.org.v1;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// OrganizacionService — gRPC expuesto por org-service (puerto 4007)
+// Consumido por: inventario-service, operaciones-service
+//   (validar que agenciaId es válido al crear vehículos o reservas)
+// ═══════════════════════════════════════════════════════════════════════════════
+service OrganizacionService {
+
+  // Verifica si una agencia existe y está activa.
+  // Llamado por operaciones-service e inventario-service para validar agenciaId.
+  rpc GetAgencia (GetAgenciaRequest)
+      returns (GetAgenciaResponse);
+
+  // Lista todas las agencias activas (para dropdowns en frontend).
+  rpc ListAgenciasActivas (ListAgenciasRequest)
+      returns (ListAgenciasResponse);
+
+  // Verifica si una empresa existe y está activa.
+  rpc GetEmpresa (GetEmpresaRequest)
+      returns (GetEmpresaResponse);
+}
+
+// ── GetAgencia ────────────────────────────────────────────────────────────────
+
+message GetAgenciaRequest {
+  string agencia_id = 1;
+}
+
+message GetAgenciaResponse {
+  bool   found      = 1;
+  string id         = 2;
+  string nombre     = 3;
+  string direccion  = 4;
+  string ciudad     = 5;
+  bool   is_active  = 6;
+  string empresa_id = 7;
+  string telefono   = 8;
+}
+
+// ── ListAgenciasActivas ───────────────────────────────────────────────────────
+
+message ListAgenciasRequest {
+  string empresa_id = 1;  // Opcional: filtrar por empresa
+  string ciudad     = 2;  // Opcional: filtrar por ciudad
+}
+
+message ListAgenciasResponse {
+  repeated AgenciaItem agencias = 1;
+  int32                total    = 2;
+}
+
+message AgenciaItem {
+  string id        = 1;
+  string nombre    = 2;
+  string ciudad    = 3;
+  string direccion = 4;
+  string empresa_id = 5;
+}
+
+// ── GetEmpresa ────────────────────────────────────────────────────────────────
+
+message GetEmpresaRequest {
+  string empresa_id = 1;
+}
+
+message GetEmpresaResponse {
+  bool   found     = 1;
+  string id        = 2;
+  string nombre    = 3;
+  string ruc       = 4;
+  bool   is_active = 5;
+}

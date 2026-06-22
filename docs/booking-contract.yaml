@@ -1,0 +1,91 @@
+openapi: 3.0.0
+info:
+  title: ZenithDrive Booking API Contract
+  version: 2.0.0
+  description: Contrato de integración para la creación de reservas (Sagas)
+paths:
+  /api/v2/mateodavid/operaciones/reservas:
+    post:
+      summary: Crear una nueva reserva de vehículo
+      description: Inicia una saga de reserva distribuida bloqueando el vehículo en el inventario.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - vehiculoId
+                - fechaInicio
+                - fechaFin
+              properties:
+                clienteId:
+                  type: string
+                  format: uuid
+                  example: "a1b2c3d4-e5f6-7890-1234-56789abcdef0"
+                  description: "ID del cliente (Opcional si el endpoint extrae el ID del token JWT del cliente. Requerido si un Admin hace la reserva por el cliente)."
+                vehiculoId:
+                  type: string
+                  format: uuid
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+                  description: ID del vehículo disponible en el catálogo
+                fechaInicio:
+                  type: string
+                  format: date-time
+                  example: "2026-06-20T10:00:00.000Z"
+                fechaFin:
+                  type: string
+                  format: date-time
+                  example: "2026-06-25T10:00:00.000Z"
+                seguroId:
+                  type: string
+                  format: uuid
+                  description: "ID del seguro seleccionado (opcional)"
+                agenciaId:
+                  type: string
+                  format: uuid
+                  description: "ID de la agencia de entrega/recepción (opcional)"
+      responses:
+        '201':
+          description: Reserva iniciada en la saga exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Reserva iniciada en la saga"
+                  data:
+                    type: object
+                    properties:
+                      reservaId:
+                        type: string
+                        format: uuid
+                      estadoSaga:
+                        type: string
+                        example: "PENDIENTE"
+                      vehiculoId:
+                        type: string
+                        format: uuid
+                      fechaInicio:
+                        type: string
+                        format: date-time
+                      fechaFin:
+                        type: string
+                        format: date-time
+                      precioEstimado:
+                        type: number
+                        format: float
+                        description: "Costo estimado inicial (precioBase + extras + seguro)"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

@@ -1,6 +1,5 @@
-node_modules
-dist
+node_modules/
+dist/
 .env
-npm-debug.log
-.git
-.github
+.env.development
+.env.production

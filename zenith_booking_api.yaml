@@ -1,0 +1,154 @@
+openapi: 3.0.3
+info:
+  title: ZenithDrive Booking API V2
+  description: API de integración externa para el equipo de Booking. Permite la creación y gestión de estados de reservas, sincronizando automáticamente la disponibilidad del inventario.
+  version: 2.0.0
+servers:
+  - url: https://mateobooking.loca.lt
+    description: Túnel de integración (LocalTunnel Fijo)
+paths:
+  /api/v2/mateodavid/operaciones/reservas:
+    post:
+      summary: Crear nueva reserva externa
+      description: Crea una reserva y bloquea automáticamente el vehículo en el inventario.
+      operationId: crearReserva
+      parameters:
+        - name: Bypass-Tunnel-Reminder
+          in: header
+          description: Header obligatorio para eludir la pantalla de advertencia del túnel gratuito localtunnel.
+          required: true
+          schema:
+            type: string
+            example: "true"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearReservaRequest'
+      responses:
+        '201':
+          description: Reserva creada exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservaResponse'
+        '400':
+          description: Faltan parámetros requeridos.
+        '404':
+          description: El vehículo especificado no existe.
+        '409':
+          description: Ya existe una reserva en conflicto de fechas para este vehículo.
+
+  /api/v2/mateodavid/operaciones/reservas/{id}:
+    patch:
+      summary: Actualizar estado de reserva
+      description: Permite confirmar o cancelar una reserva. Si se cancela, el vehículo vuelve a estar disponible en el inventario.
+      operationId: actualizarReserva
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: El ID o UUID de la reserva a modificar.
+          schema:
+            type: string
+        - name: Bypass-Tunnel-Reminder
+          in: header
+          description: Header obligatorio para eludir la pantalla de advertencia del túnel gratuito localtunnel.
+          required: true
+          schema:
+            type: string
+            example: "true"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActualizarEstadoRequest'
+      responses:
+        '200':
+          description: Estado actualizado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservaResponse'
+        '404':
+          description: La reserva especificada no existe.
+
+components:
+  schemas:
+    CrearReservaRequest:
+      type: object
+      required:
+        - vehiculoId
+        - fechaInicio
+        - fechaFin
+      properties:
+        vehiculoId:
+          type: string
+          format: uuid
+          description: Identificador único del vehículo a reservar.
+          example: "uuid-del-vehiculo"
+        fechaInicio:
+          type: string
+          format: date-time
+          description: Fecha y hora de inicio de la reserva en formato ISO.
+          example: "2026-06-25T10:00:00.000Z"
+        fechaFin:
+          type: string
+          format: date-time
+          description: Fecha y hora de fin de la reserva en formato ISO.
+          example: "2026-06-28T10:00:00.000Z"
+
+    ActualizarEstadoRequest:
+      type: object
+      required:
+        - status
+        - estadoSaga
+      properties:
+        status:
+          type: string
+          description: Estado interno de la reserva.
+          enum: [CONFIRMADA, CANCELADA]
+          example: "CONFIRMADA"
+        estadoSaga:
+          type: string
+          description: Estado del flujo orquestado.
+          enum: [CONFIRMADA, CANCELADA]
+          example: "CONFIRMADA"
+
+    ReservaResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: ID nativo de la reserva.
+            reservaId:
+              type: string
+              format: uuid
+              description: Alias del ID nativo para compatibilidad con el DTO externo.
+            status:
+              type: string
+              description: Estado interno de la reserva.
+            estadoSaga:
+              type: string
+              description: Estado mapeado para la saga externa.
+            totalAmount:
+              type: number
+              format: float
+              description: Precio total de la reserva calculada por el backend.
+            fechaInicio:
+              type: string
+              format: date
+              description: Fecha registrada de inicio (solo en PATCH).
+            fechaFin:
+              type: string
+              format: date
+              description: Fecha registrada de fin (solo en PATCH).

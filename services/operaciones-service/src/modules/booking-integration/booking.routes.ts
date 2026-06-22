@@ -6,8 +6,9 @@ import prisma from '../../shared/database/prisma.js';
 // ── URLs de servicios externos ────────────────────────────────────────────────
 // Para actualizar el estado del vehículo vamos directo a Supabase REST,
 // así NO dependemos del inventario-service (que en Railway no es localhost:3002).
-const SUPABASE_MONOLITH_URL = 'https://mzgggdprufdvpzybpctv.supabase.co';
-const SUPABASE_MONOLITH_KEY = 'sb_publishable_4R9XAvZLQjxzwgKqUT8jtg_8EG30Pgj';
+// IMPORTANTE: estas variables se configuran en el archivo .env
+const SUPABASE_MONOLITH_URL = process.env['SUPABASE_MONOLITH_URL'] ?? 'https://mzgggdprufdvpzybpctv.supabase.co';
+const SUPABASE_MONOLITH_KEY = process.env['SUPABASE_MONOLITH_KEY'] ?? '';
 
 // ── UUID helpers ──────────────────────────────────────────────────────────────
 // Prisma exige UUIDs válidos. El sistema de booking puede mandar "16" o "GUEST".

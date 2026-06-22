@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ReservaRepository } from './reserva.repository.js';
 import { NotFoundException, ValidationException } from '../../shared/errors/BusinessException.js';
+import { checkDisponibilidad, updateVehiculoEstado } from '../../shared/grpc/inventario-grpc-client.js';
 
 const INVENTARIO_URL = process.env['INVENTARIO_SERVICE_URL'] ?? 'http://localhost:3002';
 
@@ -62,24 +63,49 @@ export class ReservaController {
       const { vehiculoId, agenciaId, seguroId, canalVentaId, fechaInicio, fechaFin, notas, extras } = req.body;
       const usuarioId = req.user!.id;
 
-      // Obtener precio base del vehículo desde inventario-service
+      // ── 1. Verificar disponibilidad vía gRPC (rápido, < 3s) ──────────────────
+      // Si gRPC no está disponible, cae en fallback HTTP automáticamente.
+      const grpcResult = await checkDisponibilidad(vehiculoId, fechaInicio, fechaFin);
+
+      if (grpcResult !== null) {
+        // Respuesta gRPC exitosa: validar con datos frescos
+        if (!grpcResult.disponible) {
+          throw new ValidationException(
+            `El vehículo no está disponible (estado: ${grpcResult.status}) [vía gRPC]`,
+          );
+        }
+        console.log(`[reserva-controller] ✅ Disponibilidad verificada vía gRPC: precio_dia=$${grpcResult.precio_dia}`);
+      }
+
+      // ── 2. Obtener precio base del vehículo desde inventario-service (HTTP) ──
       const vehiculo = await fetchInventario<{ id: string; precioDia: string; status: string; isActive: boolean }>(
         `/api/v1/mateodavid/vehiculos/${vehiculoId}`
       );
       if (!vehiculo) throw new NotFoundException('Vehiculo', vehiculoId);
-      if (vehiculo.status !== 'DISPONIBLE') throw new ValidationException('El vehículo no está disponible');
 
-      const dias       = calcularDias(fechaInicio, fechaFin);
-      const precioBase = Number(vehiculo.precioDia) * dias;
+      // Si gRPC no respondió, usamos la validación HTTP
+      if (grpcResult === null && vehiculo.status !== 'DISPONIBLE') {
+        throw new ValidationException('El vehículo no está disponible');
+      }
 
-      // Calcular precio seguro
+      const dias = calcularDias(fechaInicio, fechaFin);
+      
+      // Obtener el precio diario del vehículo de gRPC o de la respuesta HTTP, con fallback seguro
+      let precioVehiculoDia = grpcResult && grpcResult.precio_dia ? Number(grpcResult.precio_dia) : Number(vehiculo.precioDia || (vehiculo as any).precio_dia);
+      if (isNaN(precioVehiculoDia) || precioVehiculoDia <= 0) {
+        precioVehiculoDia = 45; // Fallback por defecto si todo falla
+      }
+      
+      const precioBase = precioVehiculoDia * dias;
+
+      // ── 3. Calcular precio seguro ─────────────────────────────────────────────
       let precioSeguro = 0;
       if (seguroId) {
         const seguro = await this.reservaRepository.findSeguroById(seguroId);
         if (seguro) precioSeguro = Number(seguro.precioDia) * dias;
       }
 
-      // Calcular precio extras + preparar datos
+      // ── 4. Calcular precio extras ─────────────────────────────────────────────
       let precioExtras = 0;
       const extrasData: any[] = [];
       if (extras?.length) {
@@ -94,6 +120,7 @@ export class ReservaController {
         }
       }
 
+      // ── 5. Crear la reserva ───────────────────────────────────────────────────
       const reserva = await this.reservaRepository.create({
         usuarioId, vehiculoId, agenciaId, seguroId, canalVentaId,
         fechaInicio, fechaFin, diasTotal: dias,
@@ -103,6 +130,14 @@ export class ReservaController {
         notas,
         extras: extrasData,
       });
+
+      // ── 6. Actualizar inventario ──────────────────────────────────────────────
+      await updateVehiculoEstado(
+        vehiculoId,
+        'RESERVADO',
+        usuarioId,
+        `Reserva creada: ${reserva.codigoReserva}`
+      );
 
       res.status(201).json({ success: true, data: reserva });
     } catch (err) { next(err); }
@@ -123,7 +158,31 @@ export class ReservaController {
       if (reserva.status === 'COMPLETADA' || reserva.status === 'CANCELADA') {
         throw new ValidationException(`No se puede cancelar una reserva en estado ${reserva.status}`);
       }
-      res.json({ success: true, data: await this.reservaRepository.update(req.params['id'] as string, { status: 'CANCELADA' }) });
+      
+      const data = await this.reservaRepository.update(req.params['id'] as string, { status: 'CANCELADA' });
+
+      // Liberar vehículo en inventario
+      if (reserva.vehiculoId) {
+        await updateVehiculoEstado(
+          reserva.vehiculoId,
+          'DISPONIBLE',
+          req.user?.id || 'system',
+          `Reserva cancelada: ${reserva.codigoReserva}`
+        ).catch(e => console.error('Error liberando vehículo', e));
+      }
+
+      res.json({ success: true, data });
+    } catch (err) { next(err); }
+  };
+
+  confirm = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const reserva = await this.reservaRepository.findById(req.params['id'] as string);
+      if (!reserva) throw new NotFoundException('Reserva', req.params['id'] as string);
+      if (reserva.status === 'COMPLETADA' || reserva.status === 'CANCELADA') {
+        throw new ValidationException(`No se puede confirmar una reserva en estado ${reserva.status}`);
+      }
+      res.json({ success: true, data: await this.reservaRepository.update(req.params['id'] as string, { status: 'CONFIRMADA' }) });
     } catch (err) { next(err); }
   };
 

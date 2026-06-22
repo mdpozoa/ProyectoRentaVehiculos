@@ -12,5 +12,5 @@ export interface BusEvent {
   entidadId: string;
   payload: Record<string, unknown>;
   publicadoEn: string;
-  destino: 'azure-service-bus' | 'local';
+  destino: 'azure-service-bus' | 'rabbitmq' | 'local';
 }

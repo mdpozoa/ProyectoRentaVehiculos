@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { publishEvent, getEventLog } from '../../shared/bus/service-bus.js';
-import { httpPost } from '../../shared/http/client.js';
+import { httpPost, httpPatch } from '../../shared/http/client.js';
 
 const OPS_URL  = () => process.env.OPERACIONES_SERVICE_URL ?? 'http://localhost:3004';
 const INV_URL  = () => process.env.INVENTARIO_SERVICE_URL  ?? 'http://localhost:3002';
@@ -34,7 +34,7 @@ export async function crearReserva(req: Request, res: Response, next: NextFuncti
 export async function cancelarReserva(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const id = req.params['id'] as string;
-    const result = await httpPost<any>(
+    const result = await httpPatch<any>(
       `${OPS_URL()}/api/v1/mateodavid/reservas/${id}/cancelar`,
       req.body ?? {},
       token(req),

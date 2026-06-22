@@ -116,6 +116,7 @@ Deploy-Service -Name "auth-service" -Image "auth-service:latest" -Port 3001 -Env
   "JWT_SECRET=$JWT_SECRET",
   "JWT_EXPIRES_IN=$JWT_EXPIRES_IN",
   "PORT=3001",
+  "GRPC_PORT=4001",
   "NODE_ENV=production",
   "CORS_ORIGIN=*"
 )
@@ -125,6 +126,7 @@ Deploy-Service -Name "inventario-service" -Image "inventario-service:latest" -Po
   "DIRECT_URL=$INVENTARIO_DIRECT_URL",
   "JWT_SECRET=$JWT_SECRET",
   "PORT=3002",
+  "GRPC_PORT=4004",
   "NODE_ENV=production",
   "CORS_ORIGIN=*"
 )
@@ -134,6 +136,7 @@ Deploy-Service -Name "org-service" -Image "org-service:latest" -Port 3003 -EnvVa
   "DIRECT_URL=$ORG_DIRECT_URL",
   "JWT_SECRET=$JWT_SECRET",
   "PORT=3003",
+  "GRPC_PORT=4007",
   "NODE_ENV=production",
   "CORS_ORIGIN=*"
 )
@@ -145,7 +148,9 @@ Deploy-Service -Name "operaciones-service" -Image "operaciones-service:latest" -
   "PORT=3004",
   "NODE_ENV=production",
   "CORS_ORIGIN=*",
-  "INVENTARIO_SERVICE_URL=http://inventario-service"
+  "INVENTARIO_SERVICE_URL=http://inventario-service",
+  "INVENTARIO_GRPC_HOST=inventario-service",
+  "INVENTARIO_GRPC_PORT=4004"
 )
 
 Deploy-Service -Name "financiero-service" -Image "financiero-service:latest" -Port 3005 -EnvVars @(
@@ -153,6 +158,7 @@ Deploy-Service -Name "financiero-service" -Image "financiero-service:latest" -Po
   "DIRECT_URL=$FINANCIERO_DIRECT_URL",
   "JWT_SECRET=$JWT_SECRET",
   "PORT=3005",
+  "GRPC_PORT=4003",
   "NODE_ENV=production",
   "CORS_ORIGIN=*"
 )
